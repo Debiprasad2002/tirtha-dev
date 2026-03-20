@@ -1,0 +1,323 @@
+.home-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  background-color: var(--bg-primary);
+  overflow: hidden;
+  transition: background-color 0.3s ease;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.content-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px;
+  height: 100%;
+  position: relative;
+}
+
+/* Vertical scrollbar styling */
+.content-area::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.content-area::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+  border-radius: 10px;
+}
+
+.content-area::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 10px;
+  transition: background 0.3s ease;
+}
+
+.content-area::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Horizontal scrollbar styling */
+.content-area::-webkit-scrollbar-corner {
+  background: var(--bg-secondary);
+}
+
+.hero-section {
+  margin-bottom: 20px;
+  background-color: var(--bg-primary);
+  border-radius: 8px;
+  overflow: visible;
+  box-shadow: 0 2px 8px var(--shadow-sm);
+  height: 45%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.home-container.fullscreen-mode .hero-section {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  border-radius: 0;
+  padding: 0;
+  z-index: 1000;
+}
+
+.hero-section:hover:not(.fullscreen-mode .hero-section) {
+  box-shadow: 0 4px 12px var(--shadow-md);
+  transform: scale(1.01);
+}
+
+.placeholder-3d {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 18px;
+  width: 100%;
+  height: 100%;
+  background: var(--hero-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* Fullscreen overlay and buttons */
+.fullscreen-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+  pointer-events: none;
+}
+
+.btn-fullscreen-toggle {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 50px;
+  height: 50px;
+  background-color: rgba(33, 150, 243, 0.9);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 1001;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  pointer-events: auto;
+  padding: 0;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.btn-fullscreen-toggle:hover {
+  background-color: rgba(33, 150, 243, 1);
+  transform: scale(1.08);
+}
+
+.btn-fullscreen-toggle .material-icons {
+  font-size: 24px;
+}
+
+.home-container.fullscreen-mode .btn-fullscreen-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border: 2px solid white;
+  color: white;
+}
+
+.home-container.fullscreen-mode .btn-fullscreen-toggle:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.floating-action-buttons {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 15px;
+  z-index: 1002;
+  pointer-events: auto;
+  animation: slideUpIn 0.4s ease-out;
+}
+
+@keyframes slideUpIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.action-buttons {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+  z-index: 10;
+  position: relative;
+}
+
+.btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+}
+
+.btn-primary:hover {
+  background-color: var(--btn-primary-hover);
+  transform: translateY(-2px);
+}
+
+.btn-secondary {
+  background-color: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border: 1px solid var(--btn-secondary-border);
+}
+
+.btn-secondary:hover {
+  background-color: var(--bg-hover);
+}
+
+.btn-tertiary {
+  background-color: var(--btn-tertiary-bg);
+  color: var(--btn-tertiary-text);
+}
+
+.btn-tertiary:hover {
+  background-color: var(--btn-tertiary-hover);
+  transform: translateY(-2px);
+}
+
+.models-section {
+  background-color: var(--bg-primary);
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px var(--shadow-sm);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.models-section h2 {
+  margin: 0 0 15px 0;
+  font-size: 20px;
+  color: var(--text-primary);
+  transition: color 0.3s ease;
+}
+
+.models-grid {
+  display: flex;
+  flex-direction: row;
+  gap: 15px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+  padding-right: 10px;
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar styling */
+.models-grid::-webkit-scrollbar {
+  height: 8px;
+}
+
+.models-grid::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+  border-radius: 10px;
+}
+
+.models-grid::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 10px;
+  transition: background 0.3s ease;
+}
+
+.models-grid::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Responsive design */
+@media (max-width: 1024px) {
+  .home-container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .models-grid {
+    flex-direction: row;
+  }
+}
+
+@media (max-width: 768px) {
+  .content-area {
+    padding: 15px;
+  }
+
+  .hero-section {
+    height: 250px;
+  }
+
+  .models-grid {
+    flex-direction: row;
+  }
+
+  .action-buttons {
+    gap: 10px;
+  }
+
+  .btn {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+}

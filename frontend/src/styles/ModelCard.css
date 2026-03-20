@@ -1,0 +1,84 @@
+.model-card {
+  background-color: var(--card-bg);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px var(--card-shadow);
+  transition: transform 0.2s, box-shadow 0.2s, background-color 0.3s ease;
+  cursor: pointer;
+  min-width: 200px;
+  flex-shrink: 0;
+}
+
+.model-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 12px var(--shadow-md);
+}
+
+.model-card-image {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  background-color: var(--bg-secondary);
+}
+
+.model-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.model-card:hover .model-card-image img {
+  transform: scale(1.05);
+}
+
+.model-card-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.model-card:hover .model-card-overlay {
+  opacity: 1;
+}
+
+.open-button {
+  padding: 8px 24px;
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.open-button:hover {
+  background-color: var(--btn-primary-hover);
+}
+
+.model-card-content {
+  padding: 15px;
+}
+
+.model-card-content h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.model-card-content p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}

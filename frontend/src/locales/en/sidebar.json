@@ -1,0 +1,36 @@
+{
+  "menuItems": [
+    {
+      "title": "About Meditation Center",
+      "content": "Information about our meditation centers and practices. Our centers are dedicated to preserving the spiritual heritage of ancient sites and promoting meditation practices rooted in cultural traditions."
+    },
+    {
+      "title": "What is Project Tirtha?",
+      "content": "Project Tirtha is an academic initiative to create 3D models of heritage sites, using crowdsourced images. The word Tirtha is Sanskrit for \"a place of pilgrimage\", and is commonly used to refer to the sacred sites of Hinduism, Jainism and Buddhism. Our goal is to preserve and showcase the beauty and cultural significance of heritage sites. We believe that by allowing the general public to contribute to the creation of these models, and by providing open access to these models, we can increase awareness and appreciation of these important cultural landmarks and inspire future generations to maintain them for years to come.\n\nThis project is open-source under the GNU Affero General Public License v3.0 and is under active development. You can find the source code on our [GitHub](https://github.com/project-tirtha/tirtha-public) repo. All contributions are welcome. Please read [CONTRIBUTING](https://github.com/project-tirtha/tirtha-public/blob/main/CONTRIBUTING.md) for more details. You can report bugs or suggest features, submit images via \"Contribute\", or suggest heritage sites via \"Request site\". Please read [How do I contribute?](#how-do-i-contribute) before proceeding. A slideshow with video instructions for the project can be found [here](https://smlab.niser.ac.in/project/tirtha/howto), while a slidedeck presented at [ACM Web3D 2023](https://web3d.siggraph.org/program/#detailed-program) can be found [here](https://smlab.niser.ac.in/project/tirtha/static/artifacts/acmweb3d_tirtha.pdf).\n\nPlease cite the following paper if you use this software in your work:\n\n```\n@inproceedings{10.1145/3611314.3615904,\n    author = {Shivottam, Jyotirmaya and Mishra, Subhankar},\n    title = {Tirtha - An Automated Platform to Crowdsource Images and Create 3D Models of Heritage Sites},\n    year = {2023},\n    isbn = {9798400703249},\n    publisher = {Association for Computing Machinery},\n    address = {New York, NY, USA},\n    url = {https://doi.org/10.1145/3611314.3615904},\n    doi = {10.1145/3611314.3615904},\n    booktitle = {Proceedings of the 28th International ACM Conference on 3D Web Technology},\n    articleno = {11},\n    numpages = {15},\n    keywords = {photogrammetry, open source, digital heritage, crowdsourcing, 3D dataset},\n    location = {San Sebastian, Spain},\n    series = {Web3D '23}\n}\n```"
+    },
+    {
+      "title": "How do I contribute?",
+      "content": "You can contribute by sharing information, images, or data about temples and meditation centers. Simply click the 'Contribute' button to submit photos, 3D models, or detailed information about heritage sites. Your contributions help us build a comprehensive digital archive of cultural landmarks. Whether you have high-quality photographs, technical expertise in 3D modeling, or detailed historical information, we welcome all types of contributions from the community."
+    },
+    {
+      "title": "How does it work?",
+      "content": "Our platform uses 3D modeling and digital cataloging to preserve and share information about spiritual heritage. We gather crowdsourced images from visitors and contributors, process them using photogrammetry techniques to create accurate 3D models, and make these models publicly accessible through our interactive viewer. This allows people around the world to explore and appreciate these sacred sites in detail, even if they cannot visit them physically. The technology behind our platform combines computer vision, web technologies, and open-source tools to create an immersive experience."
+    },
+    {
+      "title": "Acknowledgment",
+      "content": "We acknowledge all contributors and supporters of Project Tirtha. This project would not be possible without the generous contributions of photographers, 3D modelers, researchers, and volunteers from around the world. We also acknowledge the support of academic institutions, cultural heritage organizations, and funding bodies that have made this initiative possible. Special thanks to the Subhankar Mishra's Lab and the School of Computer Sciences for their continued support and guidance."
+    },
+    {
+      "title": "Terms of Use [Updated: July 15, 2023]",
+      "content": "Please review our terms and conditions before using the platform. By using Project Tirtha, you agree to respect intellectual property rights, provide accurate information, and use the platform responsibly. Users may freely access and view 3D models for non-commercial purposes. Any redistribution or commercial use requires explicit permission. We reserve the right to remove inappropriate content and terminate accounts that violate our policies."
+    },
+    {
+      "title": "Privacy Policy [Updated: September 18, 2024]",
+      "content": "Your privacy is important to us. Learn how we handle your data. We collect minimal personal information and use it only to improve the platform and communicate with you about contributions or site updates. Your location data is optional and helps us categorize submissions. We do not share your personal information with third parties. Data is stored securely and subject to applicable privacy laws. You can request deletion of your data at any time by contacting us through the platform."
+    }
+  ],
+  "footer": {
+    "copyright": "© 2023-26 Project Tirtha. All rights reserved.",
+    "dassaultText": "La Fondation"
+  }
+}

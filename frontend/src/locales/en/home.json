@@ -1,0 +1,75 @@
+{
+  "placeholders": {
+    "3dModel": "3D Model / Map will be implemented here"
+  },
+  "sections": {
+    "featuredTemples": "Featured Temples & Monuments"
+  },
+  "temples": [
+    {
+      "id": 1,
+      "title": "Shri Tukai Mata Temple",
+      "description": "Sacred meditation center"
+    },
+    {
+      "id": 2,
+      "title": "Khandoba Temple Akurdi",
+      "description": "Ancient temple complex"
+    },
+    {
+      "id": 3,
+      "title": "Sri Bhoga Nandhiswara Temple",
+      "description": "Spiritual heritage site"
+    },
+    {
+      "id": 4,
+      "title": "Siddheshwar Temple Solapur",
+      "description": "Historical temple"
+    },
+    {
+      "id": 5,
+      "title": "Sri Khandoba Temple Bale",
+      "description": "Devotional center"
+    },
+    {
+      "id": 6,
+      "title": "Gopeshwar Temple",
+      "description": "Ancient spiritual site"
+    },
+    {
+      "id": 6,
+      "title": "Gopeshwar Temple",
+      "description": "Ancient spiritual site"
+    },
+    {
+      "id": 6,
+      "title": "Gopeshwar Temple",
+      "description": "Ancient spiritual site"
+    },
+    {
+      "id": 6,
+      "title": "Gopeshwar Temple",
+      "description": "Ancient spiritual site"
+    },
+    {
+      "id": 6,
+      "title": "Gopeshwar Temple",
+      "description": "Ancient spiritual site"
+    },
+    {
+      "id": 6,
+      "title": "Gopeshwar Temple",
+      "description": "Ancient spiritual site"
+    },
+    {
+      "id": 6,
+      "title": "Gopeshwar Temple",
+      "description": "Ancient spiritual site"
+    },
+    {
+      "id": 7,
+      "title": "Parvati Temple",
+      "description": "Sacred shrine"
+    }
+  ]
+}

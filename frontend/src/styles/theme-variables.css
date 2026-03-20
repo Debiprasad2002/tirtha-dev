@@ -1,0 +1,148 @@
+/* Theme CSS Variables */
+
+/* Light Theme (Default) */
+:root,
+[data-theme="light"] {
+  /* Colors */
+  --color-primary: #4caf50;
+  --color-secondary: #2196f3;
+  --color-tertiary: #ff9800;
+  --color-accent: #fffacd;
+  
+  /* Background Colors */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-tertiary: #fffacd;
+  --bg-hover: #f9f9f9;
+  
+  /* Text Colors */
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-tertiary: #999999;
+  --text-light: #cccccc;
+  --text-inverse: #ffffff;
+  
+  /* Border Colors */
+  --border-color: #dddddd;
+  --border-light: #eeeeee;
+  --border-dark: #cccccc;
+  
+  /* Shadow Colors */
+  --shadow-sm: rgba(0, 0, 0, 0.1);
+  --shadow-md: rgba(0, 0, 0, 0.15);
+  --shadow-lg: rgba(0, 0, 0, 0.2);
+  
+  /* Button Colors */
+  --btn-primary-bg: #4caf50;
+  --btn-primary-hover: #45a049;
+  --btn-primary-text: #ffffff;
+  
+  --btn-secondary-bg: #ffffff;
+  --btn-secondary-text: #333333;
+  --btn-secondary-border: #dddddd;
+  
+  --btn-tertiary-bg: #2196f3;
+  --btn-tertiary-hover: #0b7dda;
+  --btn-tertiary-text: #ffffff;
+  
+  /* Input Colors */
+  --input-bg: #ffffff;
+  --input-border: #dddddd;
+  --input-text: #333333;
+  --input-placeholder: #999999;
+  --input-focus-border: #999999;
+  
+  /* Card Colors */
+  --card-bg: #ffffff;
+  --card-border: #eeeeee;
+  --card-shadow: rgba(0, 0, 0, 0.1);
+  
+  /* Sidebar Colors */
+  --sidebar-bg: linear-gradient(180deg, #fffacd 0%, #ffe8a8 100%);
+  --sidebar-text: #333333;
+  
+  /* Accordion Colors */
+  --accordion-bg: #ffffff;
+  --accordion-border: #e0e0e0;
+  --accordion-hover: #f5f5f5;
+  --accordion-active: #e8e8e8;
+  --accordion-content-bg: #fafafa;
+  --accordion-text: #333333;
+  
+  /* Hero Section */
+  --hero-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  --hero-text: #999999;
+}
+
+/* Dark Theme */
+[data-theme="dark"] {
+  /* Colors */
+  --color-primary: #66bb6a;
+  --color-secondary: #42a5f5;
+  --color-tertiary: #ffb74d;
+  --color-accent: #4a4a2a;
+  
+  /* Background Colors */
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2d2d2d;
+  --bg-tertiary: #3a3a2a;
+  --bg-hover: #333333;
+  
+  /* Text Colors */
+  --text-primary: #e0e0e0;
+  --text-secondary: #b0b0b0;
+  --text-tertiary: #808080;
+  --text-light: #606060;
+  --text-inverse: #1a1a1a;
+  
+  /* Border Colors */
+  --border-color: #404040;
+  --border-light: #333333;
+  --border-dark: #505050;
+  
+  /* Shadow Colors */
+  --shadow-sm: rgba(0, 0, 0, 0.3);
+  --shadow-md: rgba(0, 0, 0, 0.5);
+  --shadow-lg: rgba(0, 0, 0, 0.7);
+  
+  /* Button Colors */
+  --btn-primary-bg: #66bb6a;
+  --btn-primary-hover: #558b57;
+  --btn-primary-text: #ffffff;
+  
+  --btn-secondary-bg: #2d2d2d;
+  --btn-secondary-text: #e0e0e0;
+  --btn-secondary-border: #404040;
+  
+  --btn-tertiary-bg: #42a5f5;
+  --btn-tertiary-hover: #1e88e5;
+  --btn-tertiary-text: #ffffff;
+  
+  /* Input Colors */
+  --input-bg: #2d2d2d;
+  --input-border: #404040;
+  --input-text: #e0e0e0;
+  --input-placeholder: #808080;
+  --input-focus-border: #606060;
+  
+  /* Card Colors */
+  --card-bg: #2d2d2d;
+  --card-border: #3a3a3a;
+  --card-shadow: rgba(0, 0, 0, 0.5);
+  
+  /* Sidebar Colors */
+  --sidebar-bg: linear-gradient(180deg, #3a3a2a 0%, #2a2a1a 100%);
+  --sidebar-text: #e0e0e0;
+  
+  /* Accordion Colors */
+  --accordion-bg: #2d2d2d;
+  --accordion-border: #404040;
+  --accordion-hover: #353535;
+  --accordion-active: #404040;
+  --accordion-content-bg: #242424;
+  --accordion-text: #e0e0e0;
+  
+  /* Hero Section */
+  --hero-gradient: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  --hero-text: #808080;
+}

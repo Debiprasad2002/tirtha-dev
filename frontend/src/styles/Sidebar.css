@@ -1,0 +1,253 @@
+.sidebar {
+  width: 380px;
+  background: var(--sidebar-bg);
+  padding: 20px;
+  height: 100vh;
+  overflow-y: hidden;
+  border-right: 1px solid var(--border-color);
+  flex-shrink: 0;
+  box-sizing: border-box;
+  color: var(--sidebar-text);
+  transition: all 0.3s ease;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar.visible {
+  animation: slideInLeft 0.4s ease-out;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.sidebar.hidden {
+  animation: slideOutLeft 0.4s ease-out forwards;
+  opacity: 0;
+  transform: translateX(-100%);
+  width: 0 !important;
+  padding: 0 !important;
+  border-right: none !important;
+  overflow: hidden;
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutLeft {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+}
+
+.sidebar-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  background: transparent;
+  cursor: col-resize;
+  transition: background 0.2s ease;
+  user-select: none;
+}
+
+.sidebar-resize-handle:hover {
+  background: var(--btn-primary-bg);
+  opacity: 0.7;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.sidebar-logo {
+  height: 45px;
+  width: auto;
+  object-fit: contain;
+}
+
+.sidebar-title-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-title {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--text-primary);
+  transition: color 0.3s ease;
+}
+
+.beta-badge {
+  background-color: #2196f3;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sidebar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 5px;
+  min-height: 0;
+}
+
+/* Scrollbar styling for sidebar content */
+.sidebar-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+  transition: background 0.3s ease;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
+  text-align: center;
+  transition: border-color 0.3s ease;
+  flex-shrink: 0;
+}
+
+.footer-icons {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 5px;
+  flex-wrap: wrap;
+}
+
+.icon-link {
+  text-decoration: none;
+  transition: transform 0.2s, opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+}
+
+.icon-link:hover {
+  transform: scale(1.15);
+  opacity: 0.8;
+}
+
+.footer-icon-img {
+  height: 40px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+  transition: filter 0.3s ease;
+}
+
+.icon-link:hover .footer-icon-img {
+  filter: brightness(0.8);
+}
+
+.cc-licenses {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.cc-licenses img {
+  height: 40px;
+  width: auto;
+  transition: opacity 0.3s ease;
+}
+
+.footer-logo {
+  margin-bottom: 5px;
+}
+
+.footer-logo img {
+  height: 150px;
+  width: auto;
+  margin-bottom: 5px;
+  transition: opacity 0.3s ease;
+}
+
+.copyright {
+  font-size: 18px;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
+  line-height: 1.6;
+  font-style: italic;
+}
+
+.copyright small {
+  display: inline;
+}
+
+.footer-link {
+  color: #0066cc;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.footer-link:hover {
+  color: #0052a3;
+}
+
+.footer-link:visited {
+  color: #551a8b;
+}
+
+/* Scrollbar styling */
+.sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: var(--text-secondary);
+  border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--text-primary);
+}

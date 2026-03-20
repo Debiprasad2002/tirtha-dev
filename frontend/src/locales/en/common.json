@@ -1,0 +1,11 @@
+{
+  "buttons": {
+    "contribute": "Contribute",
+    "requestSite": "Request site",
+    "hideInfo": "Hide information",
+    "open": "Open"
+  },
+  "placeholders": {
+    "searchModels": "Search models"
+  }
+}
