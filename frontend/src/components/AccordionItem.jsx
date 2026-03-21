@@ -1,11 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import CelebrationEffect from './CelebrationEffect';
+import StripeGradient from './StripeGradient';
 import '../styles/AccordionItem.css';
+import '../styles/CelebrationEffect.css';
+import '../styles/StripeGradient.css';
 
-function AccordionItem({ title, content, isOpen = false }) {
+function AccordionItem({ title, content, isOpen = false, isCelebration = false }) {
   const [open, setOpen] = useState(isOpen);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   const toggleAccordion = () => {
-    setOpen(!open);
+    const newOpenState = !open;
+    setOpen(newOpenState);
+    
+    // Trigger celebration effect when opening Top Contributor
+    if (isCelebration && newOpenState) {
+      setShowCelebration(true);
+      // Keep showing stripe gradient while open
+    } else if (isCelebration && !newOpenState) {
+      setShowCelebration(false);
+    }
   };
 
   // Handle scroll to element and open accordion
@@ -151,7 +165,13 @@ function AccordionItem({ title, content, isOpen = false }) {
         <span className={`accordion-icon ${open ? 'open' : ''}`}>▼</span>
       </button>
       {open && (
-        <div className="accordion-content">
+        <div className={`accordion-content ${isCelebration ? 'celebration-active' : ''}`}>
+          {isCelebration && (
+            <>
+              <StripeGradient isActive={open} />
+              <CelebrationEffect isActive={showCelebration} />
+            </>
+          )}
           {parseContent(content)}
         </div>
       )}

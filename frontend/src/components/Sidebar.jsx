@@ -92,6 +92,7 @@ function Sidebar({ isVisible }) {
               title={item.title}
               content={item.content}
               isOpen={index === 0} // First item open by default
+              isCelebration={item.isCelebration || false}
             />
           </div>
         ))}

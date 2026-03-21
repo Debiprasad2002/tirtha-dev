@@ -1,0 +1,13 @@
+/* Stripe Gradient Canvas */
+.stripe-gradient-canvas {
+  filter: blur(40px);
+  transform: scale(1.1);
+  mix-blend-mode: screen;
+  opacity: 0.6;
+}
+
+/* Ensure smooth rendering */
+canvas {
+  image-rendering: auto;
+  image-rendering: crisp-edges;
+}

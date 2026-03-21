@@ -27,6 +27,11 @@
     {
       "title": "Privacy Policy [Updated: September 18, 2024]",
       "content": "Your privacy is important to us. Learn how we handle your data. We collect minimal personal information and use it only to improve the platform and communicate with you about contributions or site updates. Your location data is optional and helps us categorize submissions. We do not share your personal information with third parties. Data is stored securely and subject to applicable privacy laws. You can request deletion of your data at any time by contacting us through the platform."
+    },
+    {
+      "title": "Top Contributor",
+      "content": "🎉 **Thank you to our amazing contributors!** 🎉\n\nThis section celebrates the exceptional individuals who have contributed their time, expertise, and passion to Project Tirtha. Our top contributors have helped us build and improve this platform through:\n\n- **Image Submissions**: Providing high-quality photographs of heritage sites\n- **3D Modeling**: Creating accurate 3D models using photogrammetry\n- **Code Contributions**: Improving our software and features\n- **Bug Reports & Feedback**: Helping us identify and fix issues\n- **Documentation**: Writing guides and tutorials\n- **Community Support**: Helping other contributors and users\n\nEvery contribution, no matter how small, makes a meaningful difference in preserving our cultural heritage for future generations. We are grateful for the dedication and enthusiasm of our community!",
+      "isCelebration": true
     }
   ],
   "footer": {

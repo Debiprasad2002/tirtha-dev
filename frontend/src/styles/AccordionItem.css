@@ -106,3 +106,22 @@
 .sidebar-link:visited {
   color: #551a8b;
 }
+
+/* Celebration effect styling for Top Contributor */
+.accordion-content.celebration-active {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.97),
+    rgba(255, 255, 255, 0.99),
+    rgba(255, 248, 240, 0.98)
+  );
+}
+
+/* Ensure text content appears above gradient background */
+.accordion-content.celebration-active > * {
+  position: relative;
+  z-index: 10;
+  mix-blend-mode: normal;
+}
