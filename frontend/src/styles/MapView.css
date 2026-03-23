@@ -1,0 +1,76 @@
+.map-view-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.map-instance {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  z-index: 1;
+}
+
+/* Ensure Leaflet map properly fills its container */
+.map-instance .leaflet-container {
+  width: 100%;
+  height: 100%;
+}
+
+/* Leaflet controls styling to match theme */
+.map-instance .leaflet-control-zoom {
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  box-shadow: 0 2px 4px var(--shadow-sm);
+}
+
+.map-instance .leaflet-control-zoom>.leaflet-control-zoom-in,
+.map-instance .leaflet-control-zoom>.leaflet-control-zoom-out {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.map-instance .leaflet-control-zoom>.leaflet-control-zoom-in:hover,
+.map-instance .leaflet-control-zoom>.leaflet-control-zoom-out:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.map-instance .leaflet-bar a {
+  color: var(--text-primary);
+}
+
+/* Attribution styling */
+.map-instance .leaflet-control-attribution {
+  background-color: rgba(255, 255, 255, 0.8);
+  color: var(--text-secondary);
+}
+
+.dark .map-instance .leaflet-control-attribution {
+  background-color: rgba(30, 30, 30, 0.8);
+  color: var(--text-secondary);
+}
+
+/* Custom Popup Styling for Hover Tooltip */
+.map-instance .custom-tooltip.leaflet-tooltip {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.map-instance .custom-tooltip.leaflet-tooltip-top::before {
+  display: none;
+}
+
+.map-instance .custom-tooltip.leaflet-tooltip .leaflet-tooltip-content {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+}
+
+.dark-mode .map-instance .custom-tooltip.leaflet-tooltip .leaflet-tooltip-content {
+  background: #2a2a2a;
+  color: #f0f0f0;
+}

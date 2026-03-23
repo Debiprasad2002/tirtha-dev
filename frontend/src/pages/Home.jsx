@@ -3,24 +3,38 @@ import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import SearchBar from '../components/SearchBar';
 import ModelCard from '../components/ModelCard';
+import MapView from '../components/MapView';
+import ModalViewer from '../components/ModalViewer';
 import '../styles/Home.css';
 
 function Home() {
   const { t } = useTranslation(['home', 'common']);
   const temples = t('home:temples', { returnObjects: true });
   const [sidebarVisible, setSidebarVisible] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(true);
+  const [selectedTemple, setSelectedTemple] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleOpenModel = (templeId) => {
     console.log('Opening model for temple:', templeId);
     // TODO: Implement 3D model viewer
   };
 
+  const handleMarkerClick = (temple) => {
+    console.log('Marker clicked:', temple);
+    setSelectedTemple(temple);
+    setIsModalOpen(true);
+  };
+
   // Handle ESC key to exit fullscreen and F key to toggle
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isFullscreen) {
-        setIsFullscreen(false);
+      if (e.key === 'Escape') {
+        if (isModalOpen) {
+          setIsModalOpen(false);
+        } else if (isFullscreen) {
+          setIsFullscreen(false);
+        }
       }
       if ((e.key === 'f' || e.key === 'F') && e.ctrlKey === false && e.altKey === false) {
         setIsFullscreen(!isFullscreen);
@@ -29,11 +43,15 @@ function Home() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFullscreen]);
+  }, [isFullscreen, isModalOpen]);
 
   return (
     <div className={`home-container ${isFullscreen ? 'fullscreen-mode' : ''}`}>
-      <Sidebar isVisible={sidebarVisible && !isFullscreen} />
+      <Sidebar 
+        isVisible={sidebarVisible && !isFullscreen}
+        selectedTemple={selectedTemple}
+        onTempleClose={() => setSelectedTemple(null)}
+      />
       <div className="main-content">
         <SearchBar />
         <div className="content-area">
@@ -44,11 +62,11 @@ function Home() {
             tabIndex={0}
             title={isFullscreen ? 'Exit fullscreen (ESC)' : 'Enter fullscreen'}
           >
-            {/* 3D Model/Map area will go here */}
-            <div className="placeholder-3d">
-              <p>{t('home:placeholders.3dModel')}</p>
-              {!isFullscreen && <p style={{ fontSize: '12px', marginTop: '10px', opacity: 0.7 }}>Click or press F to expand</p>}
-            </div>
+            {/* Map component - replaces placeholder */}
+            <MapView 
+              onMarkerClick={handleMarkerClick}
+              selectedTemple={selectedTemple}
+            />
             
             <button 
               className="btn-fullscreen-toggle"
@@ -94,6 +112,13 @@ function Home() {
           </div>
         </div>
       </div>
+
+      {/* 3D Model Viewer Modal */}
+      <ModalViewer 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        temple={selectedTemple}
+      />
     </div>
   );
 }
