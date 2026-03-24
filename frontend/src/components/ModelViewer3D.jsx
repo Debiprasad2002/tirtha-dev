@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, useGLTF, Environment } from '@react-three/drei';
 import * as THREE from 'three';
@@ -15,94 +15,54 @@ function TestModel() {
 }
 
 function Model({ url, onLoadComplete, onError }) {
-  const modelRef = useRef();
-  const hasLoaded = useRef(false);
-  const [loadError, setLoadError] = useState(null);
+  const group = useRef();
 
-  useEffect(() => {
-    const loadModel = async () => {
-      try {
-        console.log('🔄 Attempting to load model from:', url);
+  try {
+    // Use useGLTF hook - this is the modern React way
+    const gltf = useGLTF(url);
+    
+    useEffect(() => {
+      if (gltf.scene && group.current) {
+        console.log('✓ Model loaded successfully');
         
-        // Check if file exists
-        const response = await fetch(url, { method: 'HEAD' });
-        if (!response.ok) {
-          throw new Error(`File not found: ${response.status} ${response.statusText}`);
-        }
-        console.log('✓ File exists, loading with THREE...');
+        // Clone the scene to avoid reuse issues
+        const clonedScene = gltf.scene.clone();
+        
+        // Center and scale the model
+        const box = new THREE.Box3().setFromObject(clonedScene);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
 
-        // Load using THREE
-        const loader = new THREE.GLTFLoader();
-        loader.load(
-          url,
-          (gltf) => {
-            console.log('✓ GLB loaded successfully:', gltf);
-            
-            if (hasLoaded.current) return;
-            hasLoaded.current = true;
+        console.log('📐 Model bounds:', { 
+          center: { x: center.x, y: center.y, z: center.z }, 
+          size: { x: size.x, y: size.y, z: size.z } 
+        });
 
-            const scene = gltf.scene;
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = maxDim > 0 ? 2 / maxDim : 1;
 
-            try {
-              // Center and scale the model
-              const box = new THREE.Box3().setFromObject(scene);
-              const center = box.getCenter(new THREE.Vector3());
-              const size = box.getSize(new THREE.Vector3());
-
-              console.log('📐 Model bounds:', { center, size });
-
-              const maxDim = Math.max(size.x, size.y, size.z);
-              const scale = maxDim > 0 ? 2 / maxDim : 1;
-
-              scene.scale.multiplyScalar(scale);
-              scene.position.set(
-                -center.x * scale,
-                (-center.y * scale) - 0.5,
-                -center.z * scale
-              );
-
-              if (modelRef.current) {
-                while (modelRef.current.children.length > 0) {
-                  modelRef.current.removeChild(modelRef.current.children[0]);
-                }
-                modelRef.current.add(scene);
-              }
-
-              console.log('✓ Model positioned successfully');
-              setTimeout(() => {
-                if (onLoadComplete) onLoadComplete();
-              }, 300);
-            } catch (err) {
-              console.error('❌ Error positioning model:', err);
-              if (onError) onError(err);
-            }
-          },
-          (progress) => {
-            console.log('📊 Loading progress:', Math.round((progress.loaded / progress.total) * 100) + '%');
-          },
-          (error) => {
-            console.error('❌ GLTFLoader error:', error);
-            setLoadError(error.message);
-            if (onError) onError(error);
-          }
+        clonedScene.scale.multiplyScalar(scale);
+        clonedScene.position.set(
+          -center.x * scale,
+          (-center.y * scale) - 0.5,
+          -center.z * scale
         );
-      } catch (err) {
-        console.error('❌ Model fetch error:', err);
-        setLoadError(err.message);
-        if (onError) onError(err);
+
+        // Clear group and add cloned scene
+        group.current.clear();
+        group.current.add(clonedScene);
+
+        console.log('✓ Model positioned and scaled successfully');
+        if (onLoadComplete) onLoadComplete();
       }
-    };
+    }, [gltf, onLoadComplete]);
 
-    if (!hasLoaded.current) {
-      loadModel();
-    }
-  }, [url, onLoadComplete, onError]);
-
-  if (loadError) {
-    return null;
+    return <group ref={group} />;
+  } catch (error) {
+    console.error('❌ Error loading model:', error);
+    if (onError) onError(error);
+    return <TestModel />;
   }
-
-  return <group ref={modelRef} />;
 }
 
 function ModelViewer3D({ modelPath }) {

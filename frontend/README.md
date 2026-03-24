@@ -1,16 +1,50 @@
-# React + Vite
+# Project Tirtha 🌍
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## 📌 Overview
+Project Tirtha is a web application focused on building an interactive and engaging platform using modern frontend technologies. The goal is to integrate map-based features, user contributions, and dynamic UI components for a better user experience.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Current Progress
+- Developed **Left Sidebar UI**
+- Added **Top Contributors section (static implementation)**
+- Improved **UI alignment and layout structure**
+- Implemented **bottom image cards section**
+- Set up foundation for **dynamic data integration**
+- Initial planning for **user engagement/celebration features**
+- Added the map integration part and also marked the place while hovering on that you will 
+    see the gif of that temple 
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🛠️ Tech Stack
+- **Frontend:** React.js (Vite)
+- **Styling:** CSS / (add Tailwind if you used)
+- **Version Control:** Git & GitHub
+- **Maps (Planned):** OpenStreetMap integration
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## ✨ Features
+- Sidebar navigation system
+- Contributor leaderboard (static → dynamic soon)
+- Responsive UI improvements (ongoing)
+- Modular component structure
+
+---
+
+## 🔄 Upcoming Features
+- Dynamic data fetching from backend
+- Celebration animations for contributors 🎉
+- Dark/Light theme toggle
+- Full OpenStreetMap integration
+- Performance optimization
+
+---
+
+## 📦 Installation & Setup
+```bash
+git clone https://github.com/your-username/project-tirtha.git
+cd project-tirtha
+npm install
+npm run dev
