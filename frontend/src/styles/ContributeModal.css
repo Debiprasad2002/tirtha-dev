@@ -1,0 +1,263 @@
+.contribute-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 18, 28, 0.58);
+  backdrop-filter: blur(5px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+}
+
+.contribute-modal {
+  width: min(720px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(144, 202, 249, 0.33);
+  padding: 24px;
+  position: relative;
+  animation: popIn 0.22s ease-out;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-close-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  background: rgba(36, 42, 52, 0.08);
+  border: 1px solid rgba(33, 150, 243, 0.25);
+  color: #1a202c;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close-button:hover {
+  background: rgba(33, 150, 243, 0.16);
+}
+
+.contribute-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.contribute-header h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.switch-account-btn {
+  background: #e3f2fd;
+  color: #0f4c81;
+  border: 1px solid #bbdefb;
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.switch-account-btn:hover {
+  background: #dbefff;
+}
+
+.signed-in-text {
+  margin: 0 0 20px;
+  color: #334155;
+  font-size: 14px;
+}
+
+.section {
+  margin-bottom: 18px;
+}
+
+.section h3 {
+  margin: 0 0 10px;
+  color: #102a43;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.file-upload-box {
+  border: 2px dashed #93c5fd;
+  border-radius: 12px;
+  padding: 25px;
+  min-height: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(227, 242, 253, 0.45);
+}
+
+.file-upload-box:hover {
+  border-color: #5b9cf2;
+  background: rgba(227, 242, 253, 0.65);
+}
+
+.file-upload-box.drag-active {
+  border-color: #1d4ed8;
+  background: rgba(196, 220, 255, 0.7);
+}
+
+.upload-icon {
+  font-size: 36px;
+  color: #0f4c81;
+}
+
+.upload-text {
+  display: flex;
+  flex-direction: column;
+  font-size: 15px;
+  color: #1e293b;
+}
+
+.upload-text p {
+  margin: 4px 0 0;
+  color: #475569;
+  font-size: 13px;
+}
+
+.terms-section {
+  padding: 12px 10px 12px 10px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+}
+
+.terms-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #1e293b;
+  font-size: 14px;
+}
+
+.terms-label input {
+  margin-top: 2px;
+}
+
+.terms-label a {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.license-text {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: #475569;
+}
+
+.license-text a {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 16px;
+  align-items: center;
+}
+
+.btn {
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 9px 16px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.clear-btn {
+  background: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+}
+
+.clear-btn:hover {
+  background: #e2e8f0;
+}
+
+.upload-btn {
+  background: #1d4ed8;
+  color: white;
+}
+
+.upload-btn:hover {
+  background: #1e40af;
+}
+
+.upload-btn:disabled {
+  background: #93c5fd;
+  cursor: not-allowed;
+}
+
+.error-text {
+  color: #b91c1c;
+  font-size: 13px;
+  margin: 10px 0 0;
+}
+
+.request-site-note {
+  margin-top: 12px;
+  color: #475569;
+  font-size: 13px;
+}
+
+.request-site-note a {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+@media (max-width: 766px) {
+  .contribute-modal {
+    width: calc(100% - 30px);
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .contribute-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .modal-actions .btn {
+    width: 100%;
+  }
+}

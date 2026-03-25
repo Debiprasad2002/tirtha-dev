@@ -5,15 +5,17 @@ import SearchBar from '../components/SearchBar';
 import ModelCard from '../components/ModelCard';
 import MapView from '../components/MapView';
 import ModalViewer from '../components/ModalViewer';
+import ContributeModal from '../components/ContributeModal';
 import '../styles/Home.css';
 
 function Home() {
   const { t } = useTranslation(['home', 'common']);
   const temples = t('home:temples', { returnObjects: true });
-  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [sidebarVisible] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(true);
   const [selectedTemple, setSelectedTemple] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isContributeOpen, setIsContributeOpen] = useState(false);
 
   const handleOpenModel = (templeId) => {
     console.log('Opening model for temple:', templeId);
@@ -83,17 +85,19 @@ function Home() {
             
             {isFullscreen && (
               <div className="floating-action-buttons">
-                <button className="btn btn-secondary">{t('common:buttons.hideInfo')}</button>
-                <button className="btn btn-primary">{t('common:buttons.contribute')}</button>
-                <button className="btn btn-tertiary">{t('common:buttons.requestSite')}</button>
+                <button className="btn btn-primary" onClick={() => setIsContributeOpen(true)}>{t('common:buttons.contribute')}</button>
+                <button className="btn btn-tertiary" onClick={() => window.open('https://forms.gle/7fKeYvicZEre847z5', '_blank')}>
+                  {t('common:buttons.requestSite')}
+                </button>
               </div>
             )}
           </div>
 
           <div className="action-buttons" style={{ display: isFullscreen ? 'none' : 'flex' }}>
-            <button className="btn btn-secondary">{t('common:buttons.hideInfo')}</button>
-            <button className="btn btn-primary">{t('common:buttons.contribute')}</button>
-            <button className="btn btn-tertiary">{t('common:buttons.requestSite')}</button>
+            <button className="btn btn-primary" onClick={() => setIsContributeOpen(true)}>{t('common:buttons.contribute')}</button>
+            <button className="btn btn-tertiary" onClick={() => window.open('https://forms.gle/7fKeYvicZEre847z5', '_blank')}>
+              {t('common:buttons.requestSite')}
+            </button>
           </div>
 
           <div className="models-section" style={{ display: isFullscreen ? 'none' : 'flex' }}>
@@ -118,6 +122,12 @@ function Home() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         temple={selectedTemple}
+      />
+
+      {/* Contribution modal */}
+      <ContributeModal
+        isOpen={isContributeOpen}
+        onClose={() => setIsContributeOpen(false)}
       />
     </div>
   );
