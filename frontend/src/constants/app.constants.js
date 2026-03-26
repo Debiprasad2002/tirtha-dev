@@ -10,12 +10,7 @@ export const APP_CONFIG = {
   BUTTON_TERTIARY_COLOR: '#2196f3'
 };
 
-// TODO: API endpoints for future backend integration
-// Will be used when implementing:
-// - Fetch real temple data
-// - Search functionality
-// - Contribution submissions
-// Currently using placeholder data from i18n JSON files
+
 export const API_ENDPOINTS = {
   BASE_URL: 'https://api.tirtha.com',
   TEMPLES: '/api/temples',
