@@ -94,7 +94,7 @@ function Sidebar({ isVisible, selectedTemple, onTempleClose }) {
             </div>
           </div>
           <div className="sidebar-content">
-            {menuItems.map((item, index) => (
+            {menuItems.filter(item => item.title !== 'About Meditation Center').map((item, index) => (
               <div key={index} data-accordion-id={getAccordionId(item.title)}>
                 <AccordionItem
                   title={item.title}

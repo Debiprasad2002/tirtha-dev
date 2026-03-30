@@ -11,11 +11,19 @@ import '../styles/Home.css';
 function Home() {
   const { t } = useTranslation(['home', 'common']);
   const temples = t('home:temples', { returnObjects: true });
-  const [sidebarVisible] = useState(true);
+  const [sidebarVisible, setSidebarVisible] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(true);
   const [selectedTemple, setSelectedTemple] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isContributeOpen, setIsContributeOpen] = useState(false);
+
+  const showSidebar = !isFullscreen || sidebarVisible;
+
+  useEffect(() => {
+    if (!isFullscreen) {
+      setSidebarVisible(true);
+    }
+  }, [isFullscreen]);
 
   const handleOpenModel = (templeId) => {
     console.log('Opening model for temple:', templeId);
@@ -26,6 +34,13 @@ function Home() {
     console.log('Marker clicked:', temple);
     setSelectedTemple(temple);
     setIsModalOpen(true);
+    setSidebarVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSidebarVisible(false);
+    setSelectedTemple(null);
   };
 
   // Handle ESC key to exit fullscreen and F key to toggle
@@ -33,13 +48,15 @@ function Home() {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         if (isModalOpen) {
-          setIsModalOpen(false);
+          handleCloseModal();
         } else if (isFullscreen) {
           setIsFullscreen(false);
         }
       }
-      if ((e.key === 'f' || e.key === 'F') && e.ctrlKey === false && e.altKey === false) {
-        setIsFullscreen(!isFullscreen);
+      if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.altKey) {
+        const nextFullscreen = !isFullscreen;
+        setIsFullscreen(nextFullscreen);
+        setSidebarVisible(!nextFullscreen);
       }
     };
 
@@ -50,16 +67,23 @@ function Home() {
   return (
     <div className={`home-container ${isFullscreen ? 'fullscreen-mode' : ''}`}>
       <Sidebar 
-        isVisible={sidebarVisible && !isFullscreen}
+        isVisible={showSidebar}
         selectedTemple={selectedTemple}
-        onTempleClose={() => setSelectedTemple(null)}
+        onTempleClose={() => {
+          setSelectedTemple(null);
+          setSidebarVisible(false);
+          setIsModalOpen(false);
+        }}
       />
       <div className="main-content">
         <SearchBar />
         <div className="content-area">
           <div 
             className="hero-section"
-            onClick={() => setIsFullscreen(true)}
+            onClick={() => {
+              setIsFullscreen(true);
+              setSidebarVisible(false);
+            }}
             role="button"
             tabIndex={0}
             title={isFullscreen ? 'Exit fullscreen (ESC)' : 'Enter fullscreen'}
@@ -120,8 +144,9 @@ function Home() {
       {/* 3D Model Viewer Modal */}
       <ModalViewer 
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={handleCloseModal}
         temple={selectedTemple}
+        onContributeClick={() => setIsContributeOpen(true)}
       />
 
       {/* Contribution modal */}
