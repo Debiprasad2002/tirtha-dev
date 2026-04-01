@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Tooltip, GeoJSON, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Tooltip, GeoJSON, useMap, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -38,6 +38,17 @@ function IndiaBoundary({ data }) {
   );
 }
 
+function MapClickHandler({ onMapClick }) {
+  useMapEvents({
+    click: (e) => {
+      if (onMapClick) {
+        onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng });
+      }
+    },
+  });
+  return null;
+}
+
 // Fix for default marker icon
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -46,7 +57,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-function MapView({ onMarkerClick, selectedTemple }) {
+function MapView({ onMarkerClick, selectedTemple, onMapClick }) {
   const [indiaBoundary, setIndiaBoundary] = useState(null);
 
   useEffect(() => {
@@ -134,17 +145,31 @@ function MapView({ onMarkerClick, selectedTemple }) {
     const baseGif = '/gifs/Rama Jai Shree Ram GIF.gif';
     const baseModel = '/models/ram-mandir.glb';
 
-    return baseTempleLocations.map((temple, idx) => ({
-      id: `temple-${idx}-${temple.name.replace(/\s+/g, '-').toLowerCase()}`,
-      name: temple.name,
-      position: [
-        temple.lat + (Math.random() - 0.5) * 0.0003,
-        temple.lng + (Math.random() - 0.5) * 0.0003,
-      ],
-      location: 'Ayodhya, Uttar Pradesh',
-      gifUrl: baseGif,
-      modelPath: baseModel,
-    }));
+    // Avoid exact duplicate coordinates so clustering can still expand into separate markers.
+    const duplicateCounts = {};
+
+    return baseTempleLocations.map((temple, idx) => {
+      const key = `${temple.lat.toFixed(6)}:${temple.lng.toFixed(6)}`;
+      duplicateCounts[key] = (duplicateCounts[key] || 0) + 1;
+      const duplicateIndex = duplicateCounts[key] - 1;
+
+      const offsetAmount = duplicateIndex * 0.00012; // ~13m at this latitude
+      const angle = (duplicateIndex * 60) * (Math.PI / 180);
+      const latOffset = offsetAmount * Math.cos(angle);
+      const lngOffset = offsetAmount * Math.sin(angle);
+
+      return {
+        id: `temple-${idx}-${temple.name.replace(/\s+/g, '-').toLowerCase()}`,
+        name: temple.name,
+        position: [
+          temple.lat + latOffset,
+          temple.lng + lngOffset,
+        ],
+        location: temple.location || 'Ayodhya, Uttar Pradesh',
+        gifUrl: baseGif,
+        modelPath: baseModel,
+      };
+    });
   }, [baseTempleLocations]);
 
   const clusterIconCreate = (cluster) => {
@@ -187,12 +212,16 @@ function MapView({ onMarkerClick, selectedTemple }) {
         />
 
         {indiaBoundary && <IndiaBoundary data={indiaBoundary} />}
+        <MapClickHandler onMapClick={onMapClick} />
 
         <MarkerClusterGroup
           chunkedLoading
           showCoverageOnHover={false}
           spiderfyOnMaxZoom
           zoomToBoundsOnClick
+          disableClusteringAtZoom={17}
+          maxClusterRadius={60}
+          spiderfyDistanceMultiplier={1.4}
           iconCreateFunction={clusterIconCreate}
           onClusterMouseOver={handleClusterMouseOver}
           onClusterMouseOut={handleClusterMouseOut}

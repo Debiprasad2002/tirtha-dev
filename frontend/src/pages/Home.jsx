@@ -6,6 +6,7 @@ import ModelCard from '../components/ModelCard';
 import MapView from '../components/MapView';
 import ModalViewer from '../components/ModalViewer';
 import ContributeModal from '../components/ContributeModal';
+import RequestSiteModal from '../components/RequestSiteModal';
 import '../styles/Home.css';
 
 function Home() {
@@ -16,6 +17,8 @@ function Home() {
   const [selectedTemple, setSelectedTemple] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isContributeOpen, setIsContributeOpen] = useState(false);
+  const [isRequestSiteOpen, setIsRequestSiteOpen] = useState(false);
+  const [mapCoordinates, setMapCoordinates] = useState(null);
 
   const showSidebar = !isFullscreen || sidebarVisible;
 
@@ -91,6 +94,7 @@ function Home() {
             {/* Map component - replaces placeholder */}
             <MapView 
               onMarkerClick={handleMarkerClick}
+              onMapClick={setMapCoordinates}
               selectedTemple={selectedTemple}
             />
             
@@ -110,7 +114,7 @@ function Home() {
             {isFullscreen && (
               <div className="floating-action-buttons">
                 <button className="btn btn-primary" onClick={() => setIsContributeOpen(true)}>{t('common:buttons.contribute')}</button>
-                <button className="btn btn-tertiary" onClick={() => window.open('https://forms.gle/7fKeYvicZEre847z5', '_blank')}>
+                <button className="btn btn-tertiary" onClick={() => setIsRequestSiteOpen(true)}>
                   {t('common:buttons.requestSite')}
                 </button>
               </div>
@@ -119,7 +123,7 @@ function Home() {
 
           <div className="action-buttons" style={{ display: isFullscreen ? 'none' : 'flex' }}>
             <button className="btn btn-primary" onClick={() => setIsContributeOpen(true)}>{t('common:buttons.contribute')}</button>
-            <button className="btn btn-tertiary" onClick={() => window.open('https://forms.gle/7fKeYvicZEre847z5', '_blank')}>
+            <button className="btn btn-tertiary" onClick={() => setIsRequestSiteOpen(true)}>
               {t('common:buttons.requestSite')}
             </button>
           </div>
@@ -153,6 +157,13 @@ function Home() {
       <ContributeModal
         isOpen={isContributeOpen}
         onClose={() => setIsContributeOpen(false)}
+      />
+
+      <RequestSiteModal
+        isOpen={isRequestSiteOpen}
+        onClose={() => setIsRequestSiteOpen(false)}
+        initialEmail=""
+        mapCoordinates={mapCoordinates}
       />
     </div>
   );

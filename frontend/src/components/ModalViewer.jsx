@@ -111,12 +111,6 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
           >
             {t('common:buttons.contribute')}
           </button>
-          <button 
-            className="btn btn-tertiary" 
-            onClick={() => window.open('https://forms.gle/7fKeYvicZEre847z5', '_blank')}
-          >
-            {t('common:buttons.requestSite')}
-          </button>
         </div>
       </div>
     </div>
