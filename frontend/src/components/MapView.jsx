@@ -5,6 +5,15 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css';
+
+const selectionMarkerIcon = L.icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
 import '../styles/MapView.css';
 import RamMandiTooltip from './RamMandiTooltip';
 
@@ -38,11 +47,14 @@ function IndiaBoundary({ data }) {
   );
 }
 
-function MapClickHandler({ onMapClick }) {
+function MapClickHandler({ onMapClick, isSelectingLocation, selectedPosition, onSelectionPositionChange }) {
   useMapEvents({
     click: (e) => {
-      if (onMapClick) {
-        onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng });
+      const newLatLng = { lat: e.latlng.lat, lng: e.latlng.lng };
+      if (isSelectingLocation) {
+        if (onSelectionPositionChange) onSelectionPositionChange(newLatLng);
+      } else if (onMapClick) {
+        onMapClick(newLatLng);
       }
     },
   });
@@ -57,7 +69,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-function MapView({ onMarkerClick, selectedTemple, onMapClick }) {
+function MapView({ onMarkerClick, selectedTemple, onMapClick, isSelectingLocation = false, selectedPosition = null, onSelectionPositionChange, onConfirmLocation, onCancelLocationSelection }) {
   const [indiaBoundary, setIndiaBoundary] = useState(null);
 
   useEffect(() => {
@@ -212,7 +224,29 @@ function MapView({ onMarkerClick, selectedTemple, onMapClick }) {
         />
 
         {indiaBoundary && <IndiaBoundary data={indiaBoundary} />}
-        <MapClickHandler onMapClick={onMapClick} />
+
+        <MapClickHandler
+          onMapClick={onMapClick}
+          isSelectingLocation={isSelectingLocation}
+          selectedPosition={selectedPosition}
+          onSelectionPositionChange={onSelectionPositionChange}
+        />
+
+        {isSelectingLocation && selectedPosition && (
+          <Marker
+            position={[selectedPosition.lat, selectedPosition.lng]}
+            icon={selectionMarkerIcon}
+            draggable
+            eventHandlers={{
+              dragend: (e) => {
+                const latLng = e.target.getLatLng();
+                if (onSelectionPositionChange) {
+                  onSelectionPositionChange({ lat: latLng.lat, lng: latLng.lng });
+                }
+              },
+            }}
+          />
+        )}
 
         <MarkerClusterGroup
           chunkedLoading
@@ -244,6 +278,17 @@ function MapView({ onMarkerClick, selectedTemple, onMapClick }) {
           ))}
         </MarkerClusterGroup>
       </MapContainer>
+
+      {isSelectingLocation && selectedPosition && (
+        <div className="location-picker-overlay">
+          <p>Drag the pin or click on the map to select location.</p>
+          <p className="location-picker-coordinates">Selected: {selectedPosition.lat.toFixed(6)}, {selectedPosition.lng.toFixed(6)}</p>
+          <div className="location-picker-buttons">
+            <button type="button" className="btn btn-primary" onClick={onConfirmLocation}>Confirm Location</button>
+            <button type="button" className="btn btn-tertiary" onClick={onCancelLocationSelection}>Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

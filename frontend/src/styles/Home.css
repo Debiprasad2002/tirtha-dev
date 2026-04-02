@@ -170,6 +170,24 @@
   animation: slideUpIn 0.4s ease-out;
 }
 
+.contribute-bottom-right {
+  position: fixed;
+  bottom: 22px;
+  right: 24px;
+  z-index: 1005;
+}
+
+.request-bottom-right {
+  position: fixed;
+  bottom: 22px;
+  right: 130px;
+  z-index: 1005;
+}
+
+.request-bottom-right ~ .contribute-bottom-right,
+.contribute-bottom-right ~ .request-bottom-right {
+  margin-left: 10px;
+}
 @keyframes slideUpIn {
   from {
     opacity: 0;

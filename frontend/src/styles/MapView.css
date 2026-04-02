@@ -93,3 +93,36 @@
   background: #2a2a2a;
   color: #f0f0f0;
 }
+
+.location-picker-overlay {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(0,0,0,.2);
+  padding: 10px 14px;
+  border-radius: 10px;
+  box-shadow: 0 5px 18px rgba(0,0,0,.26);
+  width: min(90%, 400px);
+}
+
+.location-picker-overlay p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #1c2541;
+}
+
+.location-picker-coordinates {
+  margin-top: 6px;
+  font-weight: 600;
+}
+
+.location-picker-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: flex-end;
+}
+

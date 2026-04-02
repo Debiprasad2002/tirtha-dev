@@ -148,10 +148,19 @@ function RequestSiteModal({ isOpen, onClose, initialEmail = '', mapCoordinates =
         <div className="request-site-hint">
           {mapCoordinates
             ? `Last selected map coordinates: ${mapCoordinates.lat.toFixed(6)}, ${mapCoordinates.lng.toFixed(6)}`
-            : 'Click the map first to auto-capture coordinates (optional).'}
+            : 'Use the map picker to select location before submitting (required).'}
         </div>
 
         <form className="request-site-form" onSubmit={handleSubmit}>
+          <label>
+            Selected Map Location
+            <input
+              type="text"
+              readOnly
+              value={mapCoordinates ? `${mapCoordinates.lat.toFixed(6)}, ${mapCoordinates.lng.toFixed(6)}` : ''}
+              placeholder="No location selected"
+            />
+          </label>
           <section>
             <h3>1. User Details</h3>
             <label>

@@ -18,6 +18,8 @@ function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isContributeOpen, setIsContributeOpen] = useState(false);
   const [isRequestSiteOpen, setIsRequestSiteOpen] = useState(false);
+  const [isSelectingLocation, setIsSelectingLocation] = useState(false);
+  const [selectedPosition, setSelectedPosition] = useState({ lat: 20.5937, lng: 78.9629 });
   const [mapCoordinates, setMapCoordinates] = useState(null);
 
   const showSidebar = !isFullscreen || sidebarVisible;
@@ -44,6 +46,36 @@ function Home() {
     setIsModalOpen(false);
     setSidebarVisible(false);
     setSelectedTemple(null);
+  };
+
+  const resetRequestSelection = () => {
+    setIsSelectingLocation(false);
+    setSelectedPosition({ lat: 20.5937, lng: 78.9629 });
+  };
+
+  const handleStartLocationSelection = () => {
+    const initial = mapCoordinates || { lat: 20.5937, lng: 78.9629 };
+    setSelectedPosition(initial);
+    setIsSelectingLocation(true);
+    setIsRequestSiteOpen(false);
+  };
+
+  const handleConfirmLocation = () => {
+    const finalPosition = selectedPosition || { lat: 20.5937, lng: 78.9629 };
+    setMapCoordinates(finalPosition);
+    setSelectedPosition(finalPosition);
+    setIsSelectingLocation(false);
+    setIsRequestSiteOpen(true);
+  };
+
+  const handleCloseRequestSite = () => {
+    setIsRequestSiteOpen(false);
+    resetRequestSelection();
+    setMapCoordinates(null);
+  };
+
+  const handleCancelLocationSelection = () => {
+    resetRequestSelection();
   };
 
   // Handle ESC key to exit fullscreen and F key to toggle
@@ -95,6 +127,11 @@ function Home() {
             <MapView 
               onMarkerClick={handleMarkerClick}
               onMapClick={setMapCoordinates}
+              isSelectingLocation={isSelectingLocation}
+              selectedPosition={selectedPosition}
+              onSelectionPositionChange={setSelectedPosition}
+              onConfirmLocation={handleConfirmLocation}
+              onCancelLocationSelection={handleCancelLocationSelection}
               selectedTemple={selectedTemple}
             />
             
@@ -112,18 +149,27 @@ function Home() {
             </button>
             
             {isFullscreen && (
-              <div className="floating-action-buttons">
-                <button className="btn btn-primary" onClick={() => setIsContributeOpen(true)}>{t('common:buttons.contribute')}</button>
-                <button className="btn btn-tertiary" onClick={() => setIsRequestSiteOpen(true)}>
+              <>
+                <button
+                  className="btn btn-primary contribute-bottom-right"
+                  onClick={() => setIsContributeOpen(true)}
+                >
+                  {t('common:buttons.contribute')}
+                </button>
+
+                <button
+                  className="btn btn-tertiary request-bottom-right"
+                  onClick={handleStartLocationSelection}
+                >
                   {t('common:buttons.requestSite')}
                 </button>
-              </div>
+              </>
             )}
           </div>
 
           <div className="action-buttons" style={{ display: isFullscreen ? 'none' : 'flex' }}>
             <button className="btn btn-primary" onClick={() => setIsContributeOpen(true)}>{t('common:buttons.contribute')}</button>
-            <button className="btn btn-tertiary" onClick={() => setIsRequestSiteOpen(true)}>
+            <button className="btn btn-tertiary" onClick={handleStartLocationSelection}>
               {t('common:buttons.requestSite')}
             </button>
           </div>
@@ -161,7 +207,7 @@ function Home() {
 
       <RequestSiteModal
         isOpen={isRequestSiteOpen}
-        onClose={() => setIsRequestSiteOpen(false)}
+        onClose={handleCloseRequestSite}
         initialEmail=""
         mapCoordinates={mapCoordinates}
       />
