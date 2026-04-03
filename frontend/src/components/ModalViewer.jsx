@@ -88,6 +88,28 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
                       Longitude: {templeInfo.coordinates.lng}°
                     </p>
                   </div>
+
+                  <div className="info-section top-contributor-section">
+                    <h4>Top Contributors</h4>
+                    <ul className="top-contributors-list">
+                      <li>
+                        <span className="rank">1</span>
+                        <span className="contributor-name">User 1</span>
+                        <span className="contributor-meta">🏆</span>
+                      </li>
+                      <li>
+                        <span className="rank">2</span>
+                        <span className="contributor-name">User 2</span>
+                        <span className="contributor-meta">⭐</span>
+                      </li>
+                      <li>
+                        <span className="rank">3</span>
+                        <span className="contributor-name">User 3</span>
+                        <span className="contributor-meta">✨</span>
+                      </li>
+                    </ul>
+                    <small>Ranking is placeholder; backend will provide final data</small>
+                  </div>
                 </div>
               </aside>
 
