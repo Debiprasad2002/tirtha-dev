@@ -16,6 +16,9 @@ const selectionMarkerIcon = L.icon({
 });
 import '../styles/MapView.css';
 import RamMandiTooltip from './RamMandiTooltip';
+import SearchBar from './SearchBar';
+import MapLegend from './MapLegend';
+import MapBranding from './MapBranding';
 
 function IndiaBoundary({ data }) {
   const map = useMap();
@@ -69,7 +72,62 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-function MapView({ onMarkerClick, selectedTemple, onMapClick, isSelectingLocation = false, selectedPosition = null, onSelectionPositionChange, onConfirmLocation, onCancelLocationSelection }) {
+function FlyToTarget({ target }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!target?.position) return;
+    map.flyTo(target.position, target.zoom || 12, { duration: 1.2 });
+  }, [target, map]);
+
+  return null;
+}
+
+const markerIconMap = {
+  complete: L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41],
+    status: 'complete',
+  }),
+  partial: L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-orange.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41],
+    status: 'partial',
+  }),
+  incomplete: L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41],
+    status: 'incomplete',
+  }),
+};
+
+function getCompletionStatus(temple) {
+  if (temple.status) return temple.status;
+  const location = (temple.location || '').toLowerCase();
+  const indianKeywords = [
+    'uttar pradesh', 'maharashtra', 'karnataka', 'tamil nadu', 'andhra pradesh',
+    'west bengal', 'odisha', 'rajasthan', 'gujarat', 'kerala', 'assam',
+    'himachal pradesh', 'uttarakhand', 'new delhi', 'delhi', 'mumbai',
+    'kolkata', 'madurai', 'puri', 'jaipur', 'hyderabad', 'thiruvananthapuram',
+    'varanasi', 'ayodhya', 'india', 'bengaluru', 'bangalore',
+  ];
+
+  return indianKeywords.some((keyword) => location.includes(keyword)) ? 'complete' : 'partial';
+}
+
+function MapView({ templeList = [], onMarkerClick, selectedTemple, onSearchSelect, showMapSearch = true, onMapClick, isSelectingLocation = false, selectedPosition = null, onSelectionPositionChange, onConfirmLocation, onCancelLocationSelection, searchTarget }) {
   const [indiaBoundary, setIndiaBoundary] = useState(null);
 
   useEffect(() => {
@@ -96,62 +154,7 @@ function MapView({ onMarkerClick, selectedTemple, onMapClick, isSelectingLocatio
     fetchIndiaBoundary();
   }, []);
 
-  const baseTempleLocations = useMemo(() => [
-    // Uttar Pradesh (Ayodhya cluster)
-    { name: 'Ram Mandir', lat: 26.7956, lng: 82.1947 },
-    { name: 'Hanuman Garhi', lat: 26.7957, lng: 82.1980 },
-    { name: 'Kanak Bhavan', lat: 26.7990, lng: 82.1925 },
-    { name: 'Nageshwarnath Temple', lat: 26.7998, lng: 82.1941 },
-    { name: 'Treta Ke Thakur', lat: 26.7957, lng: 82.1940 },
-
-    // Maharashtra
-    { name: 'Shirdi Sai Baba Temple', lat: 19.7615, lng: 74.4777 },
-    { name: 'Trimbakeshwar Temple', lat: 19.9384, lng: 73.5172 },
-    { name: 'Siddhivinayak Temple', lat: 19.0176, lng: 72.8570 },
-
-    // Delhi
-    { name: 'Akshardham Temple', lat: 28.6127, lng: 77.2773 },
-    { name: 'Birla Mandir (Laxminarayan)', lat: 28.6078, lng: 77.2192 },
-
-    // Karnataka
-    { name: 'Mysore Chamundeshwari', lat: 12.3051, lng: 76.6589 },
-    { name: 'Chamundeshwari Temple', lat: 12.3051, lng: 76.6589 },
-    { name: 'Udupi Sri Krishna', lat: 13.3409, lng: 74.7421 },
-
-    // Tamil Nadu
-    { name: 'Meenakshi Amman Temple', lat: 9.9198, lng: 78.1196 },
-    { name: 'Brihadeeswarar Temple', lat: 10.7868, lng: 79.1311 },
-
-    // Andhra Pradesh
-    { name: 'Tirumala Tirupati Temple', lat: 13.6833, lng: 79.3500 },
-    { name: 'Kanaka Durga Temple', lat: 16.5098, lng: 80.6458 },
-
-    // West Bengal
-    { name: 'Dakshineswar Kali Temple', lat: 22.6530, lng: 88.3699 },
-
-    // Odisha
-    { name: 'Jagannath Temple', lat: 19.8167, lng: 85.8245 },
-
-    // Rajasthan
-    { name: 'Birla Mandir Jaipur', lat: 26.8340, lng: 75.7937 },
-    { name: 'Govind Dev Ji Temple', lat: 26.9239, lng: 75.8267 },
-
-    // Gujarat
-    { name: 'Somnath Temple', lat: 20.8907, lng: 70.4033 },
-
-    // Kerala
-    { name: 'Sree Padmanabhaswamy Temple', lat: 8.4879, lng: 76.9474 },
-    { name: 'Guruvayur Temple', lat: 10.5965, lng: 76.0423 },
-
-    // Assam
-    { name: 'Kamakhya Temple', lat: 26.1719, lng: 91.7300 },
-
-    // Himachal Pradesh
-    { name: 'Jakhoo Temple', lat: 31.1035, lng: 77.1835 },
-
-    // Uttarakhand
-    { name: 'Badrinath Temple', lat: 30.7452, lng: 79.4933 },
-  ], []);
+  const baseTempleLocations = useMemo(() => templeList, [templeList]);
 
   const templeMarkers = useMemo(() => {
     const baseGif = '/gifs/Rama Jai Shree Ram GIF.gif';
@@ -169,6 +172,7 @@ function MapView({ onMarkerClick, selectedTemple, onMapClick, isSelectingLocatio
       const angle = (duplicateIndex * 60) * (Math.PI / 180);
       const latOffset = offsetAmount * Math.cos(angle);
       const lngOffset = offsetAmount * Math.sin(angle);
+      const completionStatus = getCompletionStatus(temple);
 
       return {
         id: `temple-${idx}-${temple.name.replace(/\s+/g, '-').toLowerCase()}`,
@@ -179,16 +183,120 @@ function MapView({ onMarkerClick, selectedTemple, onMapClick, isSelectingLocatio
         ],
         location: temple.location || 'Ayodhya, Uttar Pradesh',
         gifUrl: baseGif,
-        modelPath: baseModel,
+        modelPath: temple.modelPath || baseModel,
+        completionStatus,
+        markerIcon: markerIconMap[completionStatus] || markerIconMap.partial,
       };
     });
   }, [baseTempleLocations]);
 
   const clusterIconCreate = (cluster) => {
     const count = cluster.getChildCount();
+    
+    // Count temples by completion status
+    let completeCount = 0;
+    let partialCount = 0;
+    let incompleteCount = 0;
+    
+    // Get all child markers from the cluster
+    const allChildren = cluster.getAllChildMarkers ? cluster.getAllChildMarkers() : [];
+    allChildren.forEach((marker) => {
+      const status = marker.options?.icon?.options?.status;
+      if (status === 'complete') {
+        completeCount++;
+      } else if (status === 'partial') {
+        partialCount++;
+      } else if (status === 'incomplete') {
+        incompleteCount++;
+      } else {
+        const iconUrl = marker.options?.icon?.options?.iconUrl || '';
+        if (iconUrl.includes('green')) {
+          completeCount++;
+        } else if (iconUrl.includes('orange')) {
+          partialCount++;
+        } else {
+          incompleteCount++;
+        }
+      }
+    });
+    
+    // If no status data, use simple count
+    if (completeCount === 0 && partialCount === 0 && incompleteCount === 0) {
+      partialCount = count;
+    }
+    
+    // Create pie chart SVG
+    const createPieChartSVG = () => {
+      const size = 40;
+      const radius = 16;
+      const cx = size / 2;
+      const cy = size / 2;
+      
+      // Calculate angles (percentages)
+      const total = completeCount + partialCount + incompleteCount;
+      const completePercent = total > 0 ? (completeCount / total) * 100 : 0;
+      const partialPercent = total > 0 ? (partialCount / total) * 100 : 0;
+      const incompletePercent = 100 - completePercent - partialPercent;
+      
+      // Convert percentages to radians
+      const completeAngle = (completePercent / 100) * 360;
+      const partialAngle = (partialPercent / 100) * 360;
+      
+      // Helper function to create pie slice path or full circle
+      const getPieSlice = (startAngle, endAngle, color) => {
+        const deltaAngle = endAngle - startAngle;
+        if (Math.abs(deltaAngle - 360) < 0.01 || Math.abs(deltaAngle) >= 360) {
+          return `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="${color}" stroke="white" stroke-width="1"/>`;
+        }
+
+        const start = startAngle * (Math.PI / 180);
+        const end = endAngle * (Math.PI / 180);
+        const x1 = cx + radius * Math.cos(start);
+        const y1 = cy + radius * Math.sin(start);
+        const x2 = cx + radius * Math.cos(end);
+        const y2 = cy + radius * Math.sin(end);
+        const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+        const path = `M ${cx} ${cy} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+        return `<path d="${path}" fill="${color}" stroke="white" stroke-width="1"/>`;
+      };
+
+      // Create SVG pie chart
+      let svgPaths = '';
+      let currentAngle = -90; // Start at top
+      
+      // Complete (green)
+      if (completePercent > 0) {
+        svgPaths += getPieSlice(currentAngle, currentAngle + completeAngle, '#27ae60');
+        currentAngle += completeAngle;
+      }
+      
+      // Partial (orange)
+      if (partialPercent > 0) {
+        svgPaths += getPieSlice(currentAngle, currentAngle + partialAngle, '#f39c12');
+        currentAngle += partialAngle;
+      }
+      
+      // Incomplete (blue)
+      if (incompletePercent > 0) {
+        svgPaths += getPieSlice(currentAngle, 270, '#3498db');
+      }
+      
+      // Center circle with count
+      const centerCircle = `<circle cx="${cx}" cy="${cy}" r="10" fill="white" stroke="#e0e0e0" stroke-width="1"/>`;
+      const countText = `<text x="${cx}" y="${cy + 0.5}" text-anchor="middle" dominant-baseline="central" alignment-baseline="central" font-size="13" font-weight="bold" fill="#333" font-family="sans-serif">${count}</text>`;
+      
+      return `
+        <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2))">
+          ${svgPaths}
+          ${centerCircle}
+          ${countText}
+        </svg>
+      `;
+    };
+    
     return L.divIcon({
-      html: `<div class="cluster-icon">${count}</div>`,
-      className: 'custom-cluster-icon',
+      html: createPieChartSVG(),
+      className: 'custom-cluster-icon-pie',
       iconSize: L.point(40, 40),
     });
   };
@@ -223,7 +331,14 @@ function MapView({ onMarkerClick, selectedTemple, onMapClick, isSelectingLocatio
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
+        {showMapSearch && (
+          <div className="map-search-overlay">
+            <SearchBar templeList={templeList} onSearchSelect={onSearchSelect} variant="map" />
+          </div>
+        )}
+
         {indiaBoundary && <IndiaBoundary data={indiaBoundary} />}
+        {searchTarget?.position && <FlyToTarget target={searchTarget} />}
 
         <MapClickHandler
           onMapClick={onMapClick}
@@ -265,19 +380,32 @@ function MapView({ onMarkerClick, selectedTemple, onMapClick, isSelectingLocatio
             <Marker
               key={temple.id}
               position={temple.position}
+              icon={temple.markerIcon}
               eventHandlers={{
                 click: () => {
                   if (onMarkerClick) onMarkerClick(temple);
                 },
               }}
             >
-              <Tooltip direction="top" offset={[0, -12]} opacity={1} className="custom-tooltip" permanent={false}>
+              <Tooltip
+                direction="top"
+                offset={[0, -12]}
+                opacity={1}
+                className="custom-tooltip"
+                permanent={false}
+                interactive={true}
+                sticky={true}
+              >
                 <RamMandiTooltip temple={temple} />
               </Tooltip>
             </Marker>
           ))}
         </MarkerClusterGroup>
       </MapContainer>
+
+      <MapBranding />
+
+      <MapLegend />
 
       {isSelectingLocation && selectedPosition && (
         <div className="location-picker-overlay">

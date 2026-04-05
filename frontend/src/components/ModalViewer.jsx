@@ -1,34 +1,28 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import ModelViewer3D from './ModelViewer3D';
 import '../styles/ModalViewer.css';
+
+const ModelViewer3D = lazy(() => import('./ModelViewer3D'));
 
 function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
   const { t } = useTranslation(['common']);
 
-  // Map temple IDs to model paths
-  const modelMap = {
-    'ram-mandir': '/models/ram-mandir.glb',
-  };
+  const modelPath = temple?.modelPath || '/models/ram-mandir.glb';
 
-  const modelPath = modelMap[temple?.id] || modelMap['ram-mandir'];
-
-  // Temple details database
-  const templeDetails = {
-    'ram-mandir': {
-      title: 'Ram Mandir',
-      location: 'Ayodhya, Uttar Pradesh',
-      coordinates: { lat: 26.7956, lng: 82.1943 },
-      description: 'Explore the architectural and spiritual marvel of Ram Mandir.',
-      details: [
-        'Religious significance: One of the most sacred temples in Hindu tradition',
-        'Architecture: Ancient Hindu temple architecture at its finest',
-        'Visitor info: Open year-round for pilgrims and tourists',
-      ],
+  const templeInfo = {
+    title: temple?.name || 'Ram Mandir',
+    location: temple?.location || 'Ayodhya, Uttar Pradesh',
+    coordinates: {
+      lat: temple?.position?.[0] || 26.7956,
+      lng: temple?.position?.[1] || 82.1947,
     },
+    description: temple?.description || `Explore the virtual 3D view of ${temple?.name || 'Ram Mandir'}.`,
+    details: temple?.details || [
+      'This is a demo model preview for the selected temple.',
+      'Click to explore the 3D model in detail.',
+      'Information is currently placeholder content for demo purposes.',
+    ],
   };
-
-  const templeInfo = templeDetails[temple?.id] || templeDetails['ram-mandir'];
 
   // Debug logging
   useEffect(() => {
@@ -115,7 +109,9 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
 
               {/* Right Side - 3D Viewer */}
               <div className="modal-viewer-section">
-                <ModelViewer3D modelPath={modelPath} />
+                <Suspense fallback={<div className="model-loading-placeholder">Loading 3D viewer...</div>}>
+                  <ModelViewer3D modelPath={modelPath} />
+                </Suspense>
               </div>
             </>
           ) : (

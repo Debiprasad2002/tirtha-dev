@@ -6,8 +6,7 @@ import ModelCard from '../components/ModelCard';
 import MapView from '../components/MapView';
 import ModalViewer from '../components/ModalViewer';
 import ContributeModal from '../components/ContributeModal';
-import RequestSiteModal from '../components/RequestSiteModal';
-import '../styles/Home.css';
+import RequestSiteModal from '../components/RequestSiteModal';import { TEMPLE_LOCATIONS } from '../constants/templeLocations';import '../styles/Home.css';
 
 function Home() {
   const { t } = useTranslation(['home', 'common']);
@@ -17,10 +16,12 @@ function Home() {
   const [selectedTemple, setSelectedTemple] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isContributeOpen, setIsContributeOpen] = useState(false);
+  const [contributeTarget, setContributeTarget] = useState({ title: 'Tirtha', siteName: null });
   const [isRequestSiteOpen, setIsRequestSiteOpen] = useState(false);
   const [isSelectingLocation, setIsSelectingLocation] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState({ lat: 20.5937, lng: 78.9629 });
   const [mapCoordinates, setMapCoordinates] = useState(null);
+  const [searchTarget, setSearchTarget] = useState(null);
 
   const showSidebar = !isFullscreen || sidebarVisible;
 
@@ -38,8 +39,32 @@ function Home() {
   const handleMarkerClick = (temple) => {
     console.log('Marker clicked:', temple);
     setSelectedTemple(temple);
+    setSearchTarget({ position: temple.position, zoom: 12 });
     setIsModalOpen(true);
     setSidebarVisible(true);
+  };
+
+  const handleSearchSelect = (temple) => {
+    if (!temple) return;
+    const templeWithPosition = {
+      ...temple,
+      position: [temple.lat, temple.lng],
+      fromSearch: true,
+    };
+    setSelectedTemple(templeWithPosition);
+    setSearchTarget({ position: [temple.lat, temple.lng], zoom: 12 });
+    setIsModalOpen(false);
+    setSidebarVisible(false);
+  };
+
+  const openGeneralContribute = () => {
+    setContributeTarget({ title: 'Tirtha', siteName: null });
+    setIsContributeOpen(true);
+  };
+
+  const openTempleContribute = (temple) => {
+    setContributeTarget({ title: temple?.name || 'Tirtha', siteName: temple?.name || null });
+    setIsContributeOpen(true);
   };
 
   const handleCloseModal = () => {
@@ -111,7 +136,9 @@ function Home() {
         }}
       />
       <div className="main-content">
-        <SearchBar />
+        {!isFullscreen && (
+          <SearchBar templeList={TEMPLE_LOCATIONS} onSearchSelect={handleSearchSelect} />
+        )}
         <div className="content-area">
           <div 
             className="hero-section"
@@ -125,7 +152,10 @@ function Home() {
           >
             {/* Map component - replaces placeholder */}
             <MapView 
+              templeList={TEMPLE_LOCATIONS}
               onMarkerClick={handleMarkerClick}
+              onSearchSelect={handleSearchSelect}
+              showMapSearch={isFullscreen}
               onMapClick={setMapCoordinates}
               isSelectingLocation={isSelectingLocation}
               selectedPosition={selectedPosition}
@@ -133,6 +163,7 @@ function Home() {
               onConfirmLocation={handleConfirmLocation}
               onCancelLocationSelection={handleCancelLocationSelection}
               selectedTemple={selectedTemple}
+              searchTarget={searchTarget}
             />
             
             <button 
@@ -151,13 +182,6 @@ function Home() {
             {isFullscreen && (
               <>
                 <button
-                  className="btn btn-primary contribute-bottom-right"
-                  onClick={() => setIsContributeOpen(true)}
-                >
-                  {t('common:buttons.contribute')}
-                </button>
-
-                <button
                   className="btn btn-tertiary request-bottom-right"
                   onClick={handleStartLocationSelection}
                 >
@@ -168,7 +192,6 @@ function Home() {
           </div>
 
           <div className="action-buttons" style={{ display: isFullscreen ? 'none' : 'flex' }}>
-            <button className="btn btn-primary" onClick={() => setIsContributeOpen(true)}>{t('common:buttons.contribute')}</button>
             <button className="btn btn-tertiary" onClick={handleStartLocationSelection}>
               {t('common:buttons.requestSite')}
             </button>
@@ -196,13 +219,15 @@ function Home() {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         temple={selectedTemple}
-        onContributeClick={() => setIsContributeOpen(true)}
+        onContributeClick={() => openTempleContribute(selectedTemple)}
       />
 
       {/* Contribution modal */}
       <ContributeModal
         isOpen={isContributeOpen}
         onClose={() => setIsContributeOpen(false)}
+        targetName={contributeTarget.title}
+        siteName={contributeTarget.siteName}
       />
 
       <RequestSiteModal

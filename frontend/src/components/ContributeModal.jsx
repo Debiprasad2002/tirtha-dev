@@ -1,10 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import FileUploadBox from './FileUploadBox';
 import '../styles/ContributeModal.css';
 
-function ContributeModal({ isOpen, onClose }) {
-  const [selectedFile, setSelectedFile] = useState(null);
+function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = null }) {
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [sequentialOrder, setSequentialOrder] = useState(false);
+  const [allowFullResolution, setAllowFullResolution] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -26,14 +28,20 @@ function ContributeModal({ isOpen, onClose }) {
   }, [isOpen, onClose]);
 
   const handleClear = () => {
-    setSelectedFile(null);
+    setSelectedFiles([]);
+    setSequentialOrder(false);
+    setAllowFullResolution(false);
     setTermsAccepted(false);
     setError('');
   };
 
+  const contributionTarget = siteName || targetName;
+  const fileCount = selectedFiles.length;
+  const fileNames = selectedFiles.map((file) => file.name).join(', ');
+
   const handleUpload = () => {
-    if (!selectedFile) {
-      setError('Please select a file before uploading.');
+    if (!fileCount) {
+      setError('Please select at least one file before uploading.');
       return;
     }
     if (!termsAccepted) {
@@ -42,12 +50,20 @@ function ContributeModal({ isOpen, onClose }) {
     }
 
     setError('');
-    alert(`Uploading ${selectedFile.name} ... (demo)`);
+    console.log('Upload metadata:', {
+      target: contributionTarget,
+      fileCount,
+      isSequential: sequentialOrder,
+      allowFullResolution,
+      fileNames,
+    });
+
+    alert(`Uploading ${fileCount} image${fileCount > 1 ? 's' : ''} to ${contributionTarget}... (demo)`);
     handleClear();
     onClose();
   };
 
-  const submitDisabled = useMemo(() => !selectedFile || !termsAccepted, [selectedFile, termsAccepted]);
+  const submitDisabled = !fileCount || !termsAccepted;
 
   if (!isOpen) return null;
 
@@ -59,7 +75,8 @@ function ContributeModal({ isOpen, onClose }) {
         </button>
 
         <div className="contribute-header">
-          <h2>Contribute to Tirtha</h2>
+          <h2>Contribute to {contributionTarget}</h2>
+          {siteName && <p className="site-target-note">Selected site: {siteName}</p>}
           <button type="button" className="switch-account-btn">
             <span className="material-icons">account_circle</span>
             Google SignIn
@@ -67,7 +84,42 @@ function ContributeModal({ isOpen, onClose }) {
         </div>
         <div className="section">
           <h3>Model Upload</h3>
-          <FileUploadBox selectedFile={selectedFile} onFileChange={setSelectedFile} />
+          <FileUploadBox selectedFiles={selectedFiles} onFilesChange={setSelectedFiles} />
+          <p className="upload-summary">{fileCount ? `${fileCount} file${fileCount > 1 ? 's' : ''} selected` : 'No files selected yet.'}</p>
+        </div>
+
+        <div className="section upload-options">
+          <label className="option-label">
+            <input
+              type="checkbox"
+              checked={sequentialOrder}
+              onChange={(e) => setSequentialOrder(e.target.checked)}
+            />
+            My uploaded images are sequential frames / in order
+          </label>
+          <label className="option-label">
+            <input
+              type="checkbox"
+              checked={allowFullResolution}
+              onChange={(e) => setAllowFullResolution(e.target.checked)}
+            />
+            Allow full resolution uploads (skip compression/resizing)
+          </label>
+          <p className="option-help">
+            Use full resolution only when you need maximum detail. If unchecked, the upload may use optimized resizing for speed.
+          </p>
+        </div>
+
+        <div className="section checklist-section">
+          <h3>Upload Checklist</h3>
+          <ul className="upload-checklist">
+            <li>Upload clear, well-lit images with good focus.</li>
+            <li>Use multiple images for larger sites rather than a single frame.</li>
+            <li>If images are from a video or frame sequence, enable ordered uploads.</li>
+            <li>If you need original quality, enable full resolution uploads.</li>
+            <li>Avoid screenshots and highly compressed photos.</li>
+            <li>Prefer one site per upload to keep contributions organized.</li>
+          </ul>
         </div>
 
         <div className="section terms-section">

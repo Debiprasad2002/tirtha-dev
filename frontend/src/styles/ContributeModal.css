@@ -133,6 +133,69 @@
   color: #0f4c81;
 }
 
+.upload-summary {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.upload-options,
+.checklist-section {
+  padding: 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+  margin-bottom: 18px;
+}
+
+.option-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: #1e293b;
+  font-size: 14px;
+}
+
+.option-label input {
+  margin-top: 4px;
+}
+
+.option-help {
+  margin: 0;
+  color: #475569;
+  font-size: 13px;
+}
+
+.upload-checklist {
+  display: grid;
+  gap: 10px;
+  list-style: disc inside;
+  color: #1e293b;
+  font-size: 14px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.upload-checklist li {
+  line-height: 1.55;
+}
+
+.site-target-note {
+  margin: 8px 0 0;
+  color: #475569;
+  font-size: 13px;
+}
+
+.model-loading-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+  color: #334155;
+  font-size: 15px;
+}
+
 .upload-text {
   display: flex;
   flex-direction: column;

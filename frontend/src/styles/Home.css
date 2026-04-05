@@ -180,13 +180,13 @@
 .request-bottom-right {
   position: fixed;
   bottom: 22px;
-  right: 150px;
+  right: 24px;
   z-index: 1005;
 }
 
 .request-bottom-right ~ .contribute-bottom-right,
 .contribute-bottom-right ~ .request-bottom-right {
-  margin-left: 12px;
+  display: none;
 }
 @keyframes slideUpIn {
   from {
