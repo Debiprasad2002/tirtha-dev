@@ -80,6 +80,7 @@
   border: none;
   box-shadow: none;
   padding: 0;
+  pointer-events: none;
 }
 
 .map-instance .custom-tooltip.leaflet-tooltip-top::before {
@@ -91,6 +92,7 @@
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   padding: 12px;
+  pointer-events: none;
 }
 
 .map-instance .custom-cluster-icon {

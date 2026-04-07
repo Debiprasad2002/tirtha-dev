@@ -149,13 +149,14 @@
   position: fixed;
   top: 20px;
   right: 20px;
-  background-color: rgba(255, 255, 255, 0.2);
-  border: 2px solid white;
+  background-color: rgba(255, 152, 0, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.9);
   color: white;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
 }
 
 .home-container.fullscreen-mode .btn-fullscreen-toggle:hover {
-  background-color: rgba(255, 255, 255, 0.3);
+  background-color: rgba(255, 167, 38, 0.95);
 }
 
 .floating-action-buttons {
@@ -202,11 +203,14 @@
 .action-buttons {
   display: flex;
   gap: 15px;
-  justify-content: center;
-  margin-bottom: 15px;
+  justify-content: flex-end;
+  position: fixed;
+  right: 24px;
+  bottom: 22px;
+  padding: 0;
+  margin: 0;
+  z-index: 1005;
   flex-wrap: wrap;
-  z-index: 10;
-  position: relative;
 }
 
 .btn {

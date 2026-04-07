@@ -140,16 +140,7 @@ function Home() {
           <SearchBar templeList={TEMPLE_LOCATIONS} onSearchSelect={handleSearchSelect} />
         )}
         <div className="content-area">
-          <div 
-            className="hero-section"
-            onClick={() => {
-              setIsFullscreen(true);
-              setSidebarVisible(false);
-            }}
-            role="button"
-            tabIndex={0}
-            title={isFullscreen ? 'Exit fullscreen (ESC)' : 'Enter fullscreen'}
-          >
+          <div className="hero-section">
             {/* Map component - replaces placeholder */}
             <MapView 
               templeList={TEMPLE_LOCATIONS}
@@ -170,9 +161,11 @@ function Home() {
               className="btn-fullscreen-toggle"
               onClick={(e) => {
                 e.stopPropagation();
-                setIsFullscreen(!isFullscreen);
+                const nextFullscreen = !isFullscreen;
+                setIsFullscreen(nextFullscreen);
+                setSidebarVisible(!nextFullscreen);
               }}
-              title={isFullscreen ? 'Exit fullscreen (ESC)' : 'Enter fullscreen (F)'}
+              aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
             >
               <span className="material-icons">
                 {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}

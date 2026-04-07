@@ -389,12 +389,12 @@ function MapView({ templeList = [], onMarkerClick, selectedTemple, onSearchSelec
             >
               <Tooltip
                 direction="top"
-                offset={[0, -12]}
+                offset={[0, -48]}
                 opacity={1}
                 className="custom-tooltip"
                 permanent={false}
-                interactive={true}
-                sticky={true}
+                interactive={false}
+                sticky={false}
               >
                 <RamMandiTooltip temple={temple} />
               </Tooltip>
