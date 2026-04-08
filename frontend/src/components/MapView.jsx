@@ -127,14 +127,8 @@ function getCompletionStatus(temple) {
   return indianKeywords.some((keyword) => location.includes(keyword)) ? 'complete' : 'partial';
 }
 
-function MapView({ templeList = [], onMarkerClick, selectedTemple, onSearchSelect, showMapSearch = true, onMapClick, isSelectingLocation = false, selectedPosition = null, onSelectionPositionChange, onConfirmLocation, onCancelLocationSelection, searchTarget }) {
+function MapView({ templeList = [], onMarkerClick, onSearchSelect, showMapSearch = true, onMapClick, isSelectingLocation = false, selectedPosition = null, onSelectionPositionChange, onConfirmLocation, onCancelLocationSelection, searchTarget }) {
   const [indiaBoundary, setIndiaBoundary] = useState(null);
-
-  useEffect(() => {
-    if (selectedTemple?.position) {
-      console.debug('Selected temple', selectedTemple.name);
-    }
-  }, [selectedTemple]);
 
   const center = [20.5937, 78.9629];
   const zoom = 5;

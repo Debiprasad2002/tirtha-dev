@@ -22,7 +22,7 @@ i18n
     fallbackLng: 'en',
     defaultNS: 'common',
     interpolation: {
-      escapeValue: false
+      escapeValue: true
     }
   });
 

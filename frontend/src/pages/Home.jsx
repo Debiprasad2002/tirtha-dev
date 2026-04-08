@@ -23,10 +23,14 @@ function Home() {
   const [mapCoordinates, setMapCoordinates] = useState(null);
   const [searchTarget, setSearchTarget] = useState(null);
 
-  const showSidebar = !isFullscreen || sidebarVisible;
+  const isMobileViewport = () => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 768px)').matches;
+  };
+  const showSidebar = isMobileViewport() ? sidebarVisible : (!isFullscreen || sidebarVisible);
 
   useEffect(() => {
-    if (!isFullscreen) {
+    if (!isFullscreen && !isMobileViewport()) {
       setSidebarVisible(true);
     }
   }, [isFullscreen]);
@@ -41,7 +45,6 @@ function Home() {
     setSelectedTemple(temple);
     setSearchTarget({ position: temple.position, zoom: 12 });
     setIsModalOpen(true);
-    setSidebarVisible(true);
   };
 
   const handleSearchSelect = (temple) => {
@@ -63,6 +66,8 @@ function Home() {
   };
 
   const openTempleContribute = (temple) => {
+    setIsModalOpen(false);
+    setSidebarVisible(false);
     setContributeTarget({ title: temple?.name || 'Tirtha', siteName: temple?.name || null });
     setIsContributeOpen(true);
   };
@@ -116,7 +121,9 @@ function Home() {
       if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.altKey) {
         const nextFullscreen = !isFullscreen;
         setIsFullscreen(nextFullscreen);
-        setSidebarVisible(!nextFullscreen);
+        if (!isMobileViewport()) {
+          setSidebarVisible(!nextFullscreen);
+        }
       }
     };
 
@@ -126,14 +133,30 @@ function Home() {
 
   return (
     <div className={`home-container ${isFullscreen ? 'fullscreen-mode' : ''}`}>
+      {showSidebar && (
+        <button
+          type="button"
+          className="mobile-sidebar-backdrop"
+          onClick={() => setSidebarVisible(false)}
+          aria-label="Close sidebar"
+        />
+      )}
+
+      {!isModalOpen && (
+        <button
+          type="button"
+          className="mobile-sidebar-toggle"
+          onClick={() => setSidebarVisible((prev) => !prev)}
+          aria-label={sidebarVisible ? 'Hide sidebar' : 'Show sidebar'}
+          aria-expanded={sidebarVisible}
+        >
+          <span className="material-icons">menu</span>
+        </button>
+      )}
+
       <Sidebar 
         isVisible={showSidebar}
-        selectedTemple={selectedTemple}
-        onTempleClose={() => {
-          setSelectedTemple(null);
-          setSidebarVisible(false);
-          setIsModalOpen(false);
-        }}
+        onMobileClose={() => setSidebarVisible(false)}
       />
       <div className="main-content">
         {!isFullscreen && (
@@ -153,7 +176,6 @@ function Home() {
               onSelectionPositionChange={setSelectedPosition}
               onConfirmLocation={handleConfirmLocation}
               onCancelLocationSelection={handleCancelLocationSelection}
-              selectedTemple={selectedTemple}
               searchTarget={searchTarget}
             />
             
@@ -163,7 +185,9 @@ function Home() {
                 e.stopPropagation();
                 const nextFullscreen = !isFullscreen;
                 setIsFullscreen(nextFullscreen);
-                setSidebarVisible(!nextFullscreen);
+                if (!isMobileViewport()) {
+                  setSidebarVisible(!nextFullscreen);
+                }
               }}
               aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
             >
@@ -172,7 +196,7 @@ function Home() {
               </span>
             </button>
             
-            {isFullscreen && (
+            {(isFullscreen || isMobileViewport()) && (
               <>
                 <button
                   className="btn btn-tertiary request-bottom-right"
@@ -184,7 +208,7 @@ function Home() {
             )}
           </div>
 
-          <div className="action-buttons" style={{ display: isFullscreen ? 'none' : 'flex' }}>
+          <div className="action-buttons" style={{ display: (isFullscreen || isMobileViewport()) ? 'none' : 'flex' }}>
             <button className="btn btn-tertiary" onClick={handleStartLocationSelection}>
               {t('common:buttons.requestSite')}
             </button>

@@ -68,11 +68,15 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
 
                   <div className="info-section">
                     <h4>Details</h4>
-                    <ul>
-                      {templeInfo.details.map((detail, idx) => (
-                        <li key={idx}>{detail}</li>
-                      ))}
-                    </ul>
+                    {Array.isArray(templeInfo.details) && templeInfo.details.length > 0 ? (
+                      <ul>
+                        {templeInfo.details.map((detail, idx) => (
+                          <li key={idx}>{detail}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>Detailed information will be available soon for this temple.</p>
+                    )}
                   </div>
 
                   <div className="info-section">

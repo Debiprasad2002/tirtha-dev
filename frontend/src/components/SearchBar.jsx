@@ -156,17 +156,10 @@ function SearchBar({ templeList = [], onSearchSelect, variant = 'default' }) {
           {isMapSearch && !searchQuery && (
             <div className="search-placeholder">{placeholderText}</div>
           )}
-          {isMapSearch && (
-            <button type="submit" className="search-input-action" title="Search">
-              <span className="material-icons">search</span>
-            </button>
-          )}
-        </div>
-        {!isMapSearch && (
-          <button type="submit" className={`search-button ${isMapSearch ? 'search-button--map' : ''}`} title="Search">
-            <span className="material-icons">arrow_forward</span>
+          <button type="submit" className="search-input-action" title="Search" aria-label="Search">
+            <span className="material-icons">search</span>
           </button>
-        )}
+        </div>
       </form>
 
       {isFocused && (

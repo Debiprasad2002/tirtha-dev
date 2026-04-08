@@ -82,3 +82,26 @@
   font-size: 13px;
   color: var(--text-secondary);
 }
+
+@media (max-width: 768px) {
+  .model-card {
+    min-width: 180px;
+  }
+
+  .model-card-image {
+    height: 160px;
+  }
+
+  .model-card-content {
+    padding: 12px;
+  }
+
+  .model-card-content h3 {
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+
+  .model-card-content p {
+    font-size: 12px;
+  }
+}

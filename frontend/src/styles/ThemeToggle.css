@@ -42,3 +42,30 @@
 .theme-toggle-btn:hover .material-icons {
   transform: rotate(20deg);
 }
+
+@media (max-width: 768px) {
+  .theme-toggle-btn {
+    top: var(--mobile-top-row-top, 12px);
+    right: var(--mobile-edge-padding, 12px);
+    width: var(--mobile-btn-size, 44px);
+    height: var(--mobile-btn-size, 44px);
+    z-index: 1310;
+  }
+
+  .theme-toggle-btn .material-icons {
+    font-size: var(--mobile-icon-size, 22px);
+  }
+}
+
+@media (max-width: 480px) {
+  .theme-toggle-btn {
+    top: var(--mobile-top-row-top, 10px);
+    right: var(--mobile-edge-padding, 10px);
+    width: var(--mobile-btn-size, 44px);
+    height: var(--mobile-btn-size, 44px);
+  }
+
+  .theme-toggle-btn .material-icons {
+    font-size: var(--mobile-icon-size, 22px);
+  }
+}

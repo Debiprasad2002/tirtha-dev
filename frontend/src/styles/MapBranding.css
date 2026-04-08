@@ -54,22 +54,45 @@
 /* Responsive design for smaller screens */
 @media (max-width: 768px) {
   .map-branding {
-    top: 70px;
-    left: 15px;
-    padding: 10px 12px;
-    gap: 10px;
+    top: calc(var(--mobile-top-row-top, 12px) + var(--mobile-btn-size, 44px) + 8px);
+    right: var(--mobile-edge-padding, 12px);
+    left: auto;
+    padding: 7px 9px;
+    gap: 7px;
+    border-radius: 8px;
   }
 
   .branding-logo-img {
-    height: 32px;
+    height: 23px;
   }
 
   .branding-title {
-    font-size: 13px;
+    font-size: 11px;
   }
 
   .branding-tagline {
-    font-size: 11px;
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 480px) {
+  .map-branding {
+    top: calc(var(--mobile-top-row-top, 10px) + var(--mobile-btn-size, 44px) + 8px);
+    right: var(--mobile-edge-padding, 10px);
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .branding-logo-img {
+    height: 20px;
+  }
+
+  .branding-title {
+    font-size: 10px;
+  }
+
+  .branding-tagline {
+    font-size: 8px;
   }
 }
 

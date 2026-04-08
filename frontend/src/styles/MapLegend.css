@@ -13,11 +13,58 @@
   font-size: 13px;
 }
 
+.dark .map-legend {
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.22);
+}
+
+.map-legend.collapsed {
+  min-width: auto;
+  max-width: none;
+  padding: 12px;
+}
+
+.legend-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .legend-title {
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 12px;
   font-size: 14px;
+}
+
+.legend-toggle {
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.legend-toggle:hover {
+  background: var(--bg-hover);
+}
+
+.legend-content {
+  margin-top: 12px;
+  max-height: 240px;
+  opacity: 1;
+  overflow: hidden;
+  transition: max-height 0.2s ease, opacity 0.2s ease, margin-top 0.2s ease;
+}
+
+.legend-content.collapsed {
+  margin-top: 0;
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .legend-items {
@@ -67,28 +114,77 @@
 /* Responsive design for smaller screens */
 @media (max-width: 768px) {
   .map-legend {
-    bottom: 15px;
-    left: 15px;
-    padding: 12px;
-    min-width: 180px;
+    bottom: 24px;
+    left: 12px;
+    padding: 8px 10px;
+    min-width: 150px;
+    max-width: min(68vw, 220px);
+  }
+
+  .map-legend.collapsed {
+    min-width: auto;
   }
 
   .legend-title {
-    font-size: 13px;
-    margin-bottom: 10px;
+    font-size: 12px;
+  }
+
+  .legend-toggle {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+
+  .legend-content {
+    margin-top: 8px;
   }
 
   .legend-item {
-    padding: 5px 6px;
-    gap: 8px;
+    padding: 4px 5px;
+    gap: 7px;
   }
 
   .legend-color-marker {
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
   }
 
   .legend-label {
-    font-size: 12px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .map-legend {
+    left: 10px;
+    bottom: 22px;
+    min-width: 138px;
+    max-width: min(64vw, 200px);
+    padding: 7px 9px;
+  }
+
+  .map-legend.collapsed {
+    padding: 7px 9px;
+  }
+
+  .legend-header {
+    gap: 8px;
+  }
+
+  .legend-title {
+    font-size: 11px;
+  }
+
+  .legend-content {
+    margin-top: 8px;
+  }
+
+  .legend-item {
+    padding: 4px 4px;
+    gap: 6px;
+  }
+
+  .legend-label {
+    font-size: 10px;
+    line-height: 1.2;
   }
 }

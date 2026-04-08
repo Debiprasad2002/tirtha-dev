@@ -7,6 +7,8 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [sequentialOrder, setSequentialOrder] = useState(false);
   const [allowFullResolution, setAllowFullResolution] = useState(false);
+  const [showUploadOptions, setShowUploadOptions] = useState(false);
+  const [showChecklist, setShowChecklist] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -31,6 +33,8 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
     setSelectedFiles([]);
     setSequentialOrder(false);
     setAllowFullResolution(false);
+    setShowUploadOptions(false);
+    setShowChecklist(false);
     setTermsAccepted(false);
     setError('');
   };
@@ -88,38 +92,69 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
           <p className="upload-summary">{fileCount ? `${fileCount} file${fileCount > 1 ? 's' : ''} selected` : 'No files selected yet.'}</p>
         </div>
 
-        <div className="section upload-options">
-          <label className="option-label">
-            <input
-              type="checkbox"
-              checked={sequentialOrder}
-              onChange={(e) => setSequentialOrder(e.target.checked)}
-            />
-            My uploaded images are sequential frames / in order
-          </label>
-          <label className="option-label">
-            <input
-              type="checkbox"
-              checked={allowFullResolution}
-              onChange={(e) => setAllowFullResolution(e.target.checked)}
-            />
-            Allow full resolution uploads (skip compression/resizing)
-          </label>
-          <p className="option-help">
-            Use full resolution only when you need maximum detail. If unchecked, the upload may use optimized resizing for speed.
-          </p>
+        <div className="section upload-options collapsible-section">
+          <button
+            type="button"
+            className="section-toggle"
+            onClick={() => setShowUploadOptions((prev) => !prev)}
+            aria-expanded={showUploadOptions}
+            aria-controls="upload-options-content"
+          >
+            <h3>Upload Preferences</h3>
+            <span className="material-icons section-toggle-icon">
+              {showUploadOptions ? 'expand_less' : 'expand_more'}
+            </span>
+          </button>
+
+          {showUploadOptions && (
+            <div id="upload-options-content" className="section-collapsible-content">
+              <label className="option-label">
+                <input
+                  type="checkbox"
+                  checked={sequentialOrder}
+                  onChange={(e) => setSequentialOrder(e.target.checked)}
+                />
+                My uploaded images are sequential frames / in order
+              </label>
+              <label className="option-label">
+                <input
+                  type="checkbox"
+                  checked={allowFullResolution}
+                  onChange={(e) => setAllowFullResolution(e.target.checked)}
+                />
+                Allow full resolution uploads (skip compression/resizing)
+              </label>
+              <p className="option-help">
+                Use full resolution only when you need maximum detail. If unchecked, the upload may use optimized resizing for speed.
+              </p>
+            </div>
+          )}
         </div>
 
-        <div className="section checklist-section">
-          <h3>Upload Checklist</h3>
-          <ul className="upload-checklist">
-            <li>Upload clear, well-lit images with good focus.</li>
-            <li>Use multiple images for larger sites rather than a single frame.</li>
-            <li>If images are from a video or frame sequence, enable ordered uploads.</li>
-            <li>If you need original quality, enable full resolution uploads.</li>
-            <li>Avoid screenshots and highly compressed photos.</li>
-            <li>Prefer one site per upload to keep contributions organized.</li>
-          </ul>
+        <div className="section checklist-section collapsible-section">
+          <button
+            type="button"
+            className="section-toggle"
+            onClick={() => setShowChecklist((prev) => !prev)}
+            aria-expanded={showChecklist}
+            aria-controls="upload-checklist-content"
+          >
+            <h3>Upload Checklist</h3>
+            <span className="material-icons section-toggle-icon">
+              {showChecklist ? 'expand_less' : 'expand_more'}
+            </span>
+          </button>
+
+          {showChecklist && (
+            <ul id="upload-checklist-content" className="upload-checklist section-collapsible-content">
+              <li>Upload clear, well-lit images with good focus.</li>
+              <li>Use multiple images for larger sites rather than a single frame.</li>
+              <li>If images are from a video or frame sequence, enable ordered uploads.</li>
+              <li>If you need original quality, enable full resolution uploads.</li>
+              <li>Avoid screenshots and highly compressed photos.</li>
+              <li>Prefer one site per upload to keep contributions organized.</li>
+            </ul>
+          )}
         </div>
 
         <div className="section terms-section">
