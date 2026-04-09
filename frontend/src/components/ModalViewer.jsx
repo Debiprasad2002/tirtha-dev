@@ -1,4 +1,4 @@
-import React, { useEffect, lazy, Suspense } from 'react';
+import React, { useEffect, lazy, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../styles/ModalViewer.css';
 
@@ -6,6 +6,15 @@ const ModelViewer3D = lazy(() => import('./ModelViewer3D'));
 
 function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
   const { t } = useTranslation(['common']);
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 720px)').matches : false
+  );
+  const [openSections, setOpenSections] = useState({
+    description: true,
+    details: true,
+    coordinates: true,
+    contributors: true,
+  });
 
   const modelPath = temple?.modelPath || '/models/ram-mandir.glb';
 
@@ -32,6 +41,90 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
       console.log('Model path:', modelPath);
     }
   }, [isOpen, temple, modelPath]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const mediaQuery = window.matchMedia('(max-width: 720px)');
+
+    const handleViewportChange = (event) => {
+      setIsMobile(event.matches);
+    };
+
+    setIsMobile(mediaQuery.matches);
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleViewportChange);
+      return () => mediaQuery.removeEventListener('change', handleViewportChange);
+    }
+
+    mediaQuery.addListener(handleViewportChange);
+    return () => mediaQuery.removeListener(handleViewportChange);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setOpenSections({
+        description: true,
+        details: true,
+        coordinates: true,
+        contributors: true,
+      });
+      return;
+    }
+
+    // On mobile, keep only high-priority content open initially to reduce vertical clutter.
+    if (isMobile) {
+      setOpenSections({
+        description: true,
+        details: false,
+        coordinates: false,
+        contributors: false,
+      });
+      return;
+    }
+
+    setOpenSections({
+      description: true,
+      details: true,
+      coordinates: true,
+      contributors: true,
+    });
+  }, [isOpen, isMobile]);
+
+  const toggleSection = (sectionKey) => {
+    setOpenSections((prev) => ({
+      ...prev,
+      [sectionKey]: !prev[sectionKey],
+    }));
+  };
+
+  const renderSection = (key, title, content) => {
+    const isOpenSection = openSections[key];
+
+    if (!isMobile) {
+      return (
+        <div className="info-section" key={key}>
+          <h4>{title}</h4>
+          {content}
+        </div>
+      );
+    }
+
+    return (
+      <div className="info-section info-accordion" key={key}>
+        <button
+          type="button"
+          className="info-accordion-header"
+          onClick={() => toggleSection(key)}
+          aria-expanded={isOpenSection}
+        >
+          <span>{title}</span>
+          <span className={`info-accordion-icon ${isOpenSection ? 'open' : ''}`}>▼</span>
+        </button>
+        {isOpenSection && <div className="info-accordion-content">{content}</div>}
+      </div>
+    );
+  };
 
   if (!isOpen) return null;
 
@@ -61,14 +154,12 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
                     <p className="location">📍 {templeInfo.location}</p>
                   </div>
 
-                  <div className="info-section">
-                    <h4>Description</h4>
-                    <p>{templeInfo.description}</p>
-                  </div>
+                  {renderSection('description', 'Description', <p>{templeInfo.description}</p>)}
 
-                  <div className="info-section">
-                    <h4>Details</h4>
-                    {Array.isArray(templeInfo.details) && templeInfo.details.length > 0 ? (
+                  {renderSection(
+                    'details',
+                    'Details',
+                    Array.isArray(templeInfo.details) && templeInfo.details.length > 0 ? (
                       <ul>
                         {templeInfo.details.map((detail, idx) => (
                           <li key={idx}>{detail}</li>
@@ -76,38 +167,42 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
                       </ul>
                     ) : (
                       <p>Detailed information will be available soon for this temple.</p>
-                    )}
-                  </div>
+                    )
+                  )}
 
-                  <div className="info-section">
-                    <h4>Geo Coordinates</h4>
+                  {renderSection(
+                    'coordinates',
+                    'Geo Coordinates',
                     <p className="coordinates">
                       Latitude: {templeInfo.coordinates.lat}°<br />
                       Longitude: {templeInfo.coordinates.lng}°
                     </p>
-                  </div>
+                  )}
 
-                  <div className="info-section top-contributor-section">
-                    <h4>Top Contributors</h4>
-                    <ul className="top-contributors-list">
-                      <li>
-                        <span className="rank">1</span>
-                        <span className="contributor-name">User 1</span>
-                        <span className="contributor-meta">🏆</span>
-                      </li>
-                      <li>
-                        <span className="rank">2</span>
-                        <span className="contributor-name">User 2</span>
-                        <span className="contributor-meta">⭐</span>
-                      </li>
-                      <li>
-                        <span className="rank">3</span>
-                        <span className="contributor-name">User 3</span>
-                        <span className="contributor-meta">✨</span>
-                      </li>
-                    </ul>
-                    <small>Ranking is placeholder; backend will provide final data</small>
-                  </div>
+                  {renderSection(
+                    'contributors',
+                    'Top Contributors',
+                    <div className="top-contributor-section">
+                      <ul className="top-contributors-list">
+                        <li>
+                          <span className="rank">1</span>
+                          <span className="contributor-name">User 1</span>
+                          <span className="contributor-meta">🏆</span>
+                        </li>
+                        <li>
+                          <span className="rank">2</span>
+                          <span className="contributor-name">User 2</span>
+                          <span className="contributor-meta">⭐</span>
+                        </li>
+                        <li>
+                          <span className="rank">3</span>
+                          <span className="contributor-name">User 3</span>
+                          <span className="contributor-meta">✨</span>
+                        </li>
+                      </ul>
+                      <small>Ranking is placeholder; backend will provide final data</small>
+                    </div>
+                  )}
                 </div>
               </aside>
 

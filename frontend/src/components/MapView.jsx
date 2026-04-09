@@ -313,6 +313,7 @@ function MapView({ templeList = [], onMarkerClick, onSearchSelect, showMapSearch
   const handleClusterClick = (e) => {
     const map = e.target._map || e.target._map || null;
     if (!map || !e.layer) return;
+
     const bounds = e.layer.getBounds();
     map.fitBounds(bounds, { animate: true, maxZoom: map.getZoom() + 3, duration: 0.5 });
   };

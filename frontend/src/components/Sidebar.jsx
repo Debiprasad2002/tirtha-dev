@@ -17,6 +17,7 @@ function Sidebar({ isVisible, onMobileClose }) {
   const { isDark } = useTheme();
   const [sidebarWidth, setSidebarWidth] = useState(380);
   const [isResizing, setIsResizing] = useState(false);
+  const [closeNonce, setCloseNonce] = useState(0);
 
   const menuItems = t('sidebar:menuItems', { returnObjects: true });
   const lfdsLogo = isDark ? lfdsLogoDark : lfdsLogoLight;
@@ -73,6 +74,13 @@ function Sidebar({ isVisible, onMobileClose }) {
     }
   }, [isResizing]);
 
+  React.useEffect(() => {
+    if (!isVisible) {
+      // Closing the sidebar should reset all accordion items to collapsed state.
+      setCloseNonce((prev) => prev + 1);
+    }
+  }, [isVisible]);
+
   return (
     <aside 
       className={`sidebar ${isVisible ? 'visible' : 'hidden'}`}
@@ -96,7 +104,7 @@ function Sidebar({ isVisible, onMobileClose }) {
         </div>
         <div className="sidebar-content">
           {menuItems.filter(item => item.title !== 'About Meditation Center').map((item, index) => (
-            <div key={index} data-accordion-id={getAccordionId(item.title)}>
+            <div key={`${index}-${closeNonce}`} data-accordion-id={getAccordionId(item.title)}>
               <AccordionItem
                 title={item.title}
                 content={item.content}

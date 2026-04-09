@@ -14,26 +14,43 @@
   border-radius: 12px;
   width: min(100%, 840px);
   max-height: 90vh;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 16px 20px 20px;
   box-shadow: 0 10px 30px rgba(0,0,0,.25);
   position: relative;
   animation: slideUp 240ms ease-out;
+  display: flex;
+  flex-direction: column;
 }
 
 .request-site-close {
-  position: absolute;
-  right: 12px;
-  top: 12px;
+  position: sticky;
+  top: 8px;
+  margin-left: auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
   border: none;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
   font-size: 20px;
   cursor: pointer;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #1f2937;
+  border: 1px solid #e5e7eb;
+}
+
+.request-site-close:hover {
+  background: #fff;
 }
 
 .request-site-modal h2 {
   margin: 0 0 14px;
   font-size: 1.4rem;
+  padding-right: 48px;
 }
 
 .request-site-modal h3 {
@@ -52,6 +69,42 @@
   display: block;
   margin-bottom: 10px;
   font-size: 0.95rem;
+}
+
+.request-site-form {
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 4px;
+}
+
+.request-site-form::-webkit-scrollbar {
+  width: 8px;
+}
+
+.request-site-form::-webkit-scrollbar-thumb {
+  background: #c7c7c7;
+  border-radius: 8px;
+}
+
+@media (max-width: 720px) {
+  .request-site-modal {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    border-radius: 16px;
+    padding: 12px 14px 14px;
+  }
+
+  .request-site-close {
+    top: calc(6px + env(safe-area-inset-top));
+    width: 44px;
+    height: 44px;
+    font-size: 24px;
+  }
+
+  .request-site-modal h2 {
+    font-size: 1.25rem;
+    padding-right: 56px;
+  }
 }
 
 .request-site-form label span {

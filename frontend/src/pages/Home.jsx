@@ -43,7 +43,6 @@ function Home() {
   const handleMarkerClick = (temple) => {
     console.log('Marker clicked:', temple);
     setSelectedTemple(temple);
-    setSearchTarget({ position: temple.position, zoom: 12 });
     setIsModalOpen(true);
   };
 

@@ -55,8 +55,9 @@
   font-size: 20px;
   color: #333;
   z-index: 100;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   pointer-events: auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .dark-mode .modal-close-btn {
@@ -66,6 +67,7 @@
 
 .modal-close-btn:hover {
   background: rgba(0, 0, 0, 0.2);
+  transform: scale(1.04);
 }
 
 .dark-mode .modal-close-btn:hover {
@@ -139,6 +141,41 @@
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.info-accordion {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+.info-accordion-header {
+  width: 100%;
+  border: none;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.93rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.info-accordion-icon {
+  display: inline-block;
+  transition: transform 0.25s ease;
+  font-size: 0.78rem;
+}
+
+.info-accordion-icon.open {
+  transform: rotate(180deg);
+}
+
+.info-accordion-content {
+  padding: 10px 12px 12px;
 }
 
 .info-section p {
@@ -321,6 +358,27 @@
     border-radius: 0;
   }
 
+  .modal-close-btn {
+    position: fixed;
+    top: calc(10px + env(safe-area-inset-top));
+    right: 10px;
+    width: 46px;
+    height: 46px;
+    z-index: 4100;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28);
+  }
+
+  .dark-mode .modal-close-btn {
+    background: rgba(30, 30, 30, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+  }
+
+  .sidebar-header {
+    padding-right: 56px;
+  }
+
   .modal-content {
     flex-direction: column;
     overflow-y: auto;
@@ -332,6 +390,23 @@
     border-bottom: 1px solid var(--border-color);
     max-height: none;
     padding: 12px;
+  }
+
+  .sidebar-body {
+    gap: 10px;
+  }
+
+  .info-section:not(.info-accordion) {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+
+  .top-contributor-section {
+    border-top: none;
+    margin-top: 0;
+    padding-top: 0;
   }
 
   .modal-viewer-section {

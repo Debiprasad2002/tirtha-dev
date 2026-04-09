@@ -123,6 +123,7 @@
   overflow-x: hidden;
   padding-right: 5px;
   min-height: 0;
+  overscroll-behavior: contain;
 }
 
 /* Scrollbar styling for sidebar content */
@@ -262,7 +263,8 @@
     top: 0;
     left: 0;
     width: min(84vw, 320px) !important;
-    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
     padding: 14px 12px;
     z-index: 1250;
     border-right: 1px solid var(--border-color);
@@ -270,6 +272,12 @@
     box-shadow: 8px 0 24px rgba(0, 0, 0, 0.2);
     background: var(--sidebar-bg);
     will-change: transform;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    pointer-events: auto;
   }
 
   .sidebar.visible {
@@ -329,6 +337,10 @@
   .sidebar-content {
     gap: 8px;
     padding-right: 0;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+    overflow: visible;
+    flex: 0 0 auto;
+    min-height: auto;
   }
 
   .sidebar-footer {
