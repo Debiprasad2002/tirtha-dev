@@ -1,17 +1,26 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../styles/SearchBar.css';
+
+const SAMPLE_PLACEHOLDERS = [
+  'Search Jagannath Temple',
+  'Search Ram Mandir',
+  'Search Kanaka Durga Temple',
+  'Search Ram Mandir',
+  'Search Jagannath Temple',
+];
 
 function SearchBar({ templeList = [], onSearchSelect, variant = 'default' }) {
   const { t } = useTranslation('common');
   const isMapSearch = variant === 'map';
   const containerRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [placeholderText, setPlaceholderText] = useState(t('common:placeholders.searchModels'));
-  const [suggestions, setSuggestions] = useState([]);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [isFocused, setIsFocused] = useState(false);
   const [recentSearches, setRecentSearches] = useState([]);
+  const queryRef = useRef('');
 
   // Close suggestions when clicking outside the search container
   useEffect(() => {
@@ -22,7 +31,7 @@ function SearchBar({ templeList = [], onSearchSelect, variant = 'default' }) {
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside, { passive: true });
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
@@ -33,62 +42,63 @@ function SearchBar({ templeList = [], onSearchSelect, variant = 'default' }) {
       try {
         setRecentSearches(JSON.parse(saved));
       } catch (e) {
-        console.error('Error loading search history:', e);
+        if (import.meta.env.DEV) {
+          console.error('Error loading search history:', e);
+        }
       }
     }
   }, []);
 
   useEffect(() => {
-    const samplePlaceholders = [
-      'Search Jagannath Temple',
-      'Search Ram Mandir',
-      'Search Kanaka Durga Temple',
-      'Search Ram Mandir',
-      'Search Jagannath Temple',
-    ];
+    queryRef.current = searchQuery;
+  }, [searchQuery]);
 
+  useEffect(() => {
     let currentIndex = 0;
-    setPlaceholderText(samplePlaceholders[currentIndex]);
+    setPlaceholderText(SAMPLE_PLACEHOLDERS[currentIndex]);
 
     const interval = setInterval(() => {
-      if (searchQuery) return;
-      currentIndex = (currentIndex + 1) % samplePlaceholders.length;
-      setPlaceholderText(samplePlaceholders[currentIndex]);
+      if (queryRef.current) return;
+      currentIndex = (currentIndex + 1) % SAMPLE_PLACEHOLDERS.length;
+      setPlaceholderText(SAMPLE_PLACEHOLDERS[currentIndex]);
     }, 2600);
 
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const timerId = window.setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim().toLowerCase());
+    }, 200);
+
+    return () => window.clearTimeout(timerId);
   }, [searchQuery]);
 
-  // Update suggestions based on search query
-  useEffect(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) {
-      setSuggestions([]);
-      setActiveIndex(-1);
-      return;
-    }
+  const filteredSuggestions = useMemo(() => {
+    if (!debouncedQuery) return [];
 
-    const filtered = templeList
+    return templeList
       .filter((temple) =>
-        temple.name.toLowerCase().includes(query) ||
-        temple.location.toLowerCase().includes(query)
+        temple.name.toLowerCase().includes(debouncedQuery) ||
+        temple.location.toLowerCase().includes(debouncedQuery)
       )
       .slice(0, 8);
+  }, [debouncedQuery, templeList]);
 
-    setSuggestions(filtered);
-    setActiveIndex(filtered.length > 0 ? 0 : -1);
-  }, [searchQuery, templeList]);
+  useEffect(() => {
+    setActiveIndex(filteredSuggestions.length > 0 ? 0 : -1);
+  }, [filteredSuggestions.length]);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (activeIndex >= 0 && activeIndex < suggestions.length) {
-      handleSuggestionClick(suggestions[activeIndex]);
-    } else if (suggestions.length > 0) {
-      handleSuggestionClick(suggestions[0]);
+    if (activeIndex >= 0 && activeIndex < filteredSuggestions.length) {
+      handleSuggestionClick(filteredSuggestions[activeIndex]);
+    } else if (filteredSuggestions.length > 0) {
+      handleSuggestionClick(filteredSuggestions[0]);
     }
   };
 
-  const handleSuggestionClick = (temple) => {
+  const handleSuggestionClick = useCallback((temple) => {
     // Save to search history
     const newHistory = [
       { name: temple.name, location: temple.location, lat: temple.lat, lng: temple.lng },
@@ -99,10 +109,9 @@ function SearchBar({ templeList = [], onSearchSelect, variant = 'default' }) {
     localStorage.setItem('templeSearchHistory', JSON.stringify(newHistory));
     
     setSearchQuery('');
-    setSuggestions([]);
     setIsFocused(false);
     onSearchSelect?.(temple);
-  };
+  }, [onSearchSelect, recentSearches]);
 
   const handleRecentClick = (recentTemple) => {
     const temple = templeList.find(t => t.name === recentTemple.name);
@@ -112,11 +121,11 @@ function SearchBar({ templeList = [], onSearchSelect, variant = 'default' }) {
   };
 
   const handleKeyDown = (e) => {
-    if (!suggestions.length) return;
+    if (!filteredSuggestions.length) return;
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActiveIndex((prev) => Math.min(prev + 1, suggestions.length - 1));
+      setActiveIndex((prev) => Math.min(prev + 1, filteredSuggestions.length - 1));
       setIsFocused(true);
     }
 
@@ -126,9 +135,9 @@ function SearchBar({ templeList = [], onSearchSelect, variant = 'default' }) {
       setIsFocused(true);
     }
 
-    if (e.key === 'Enter' && activeIndex >= 0 && activeIndex < suggestions.length) {
+    if (e.key === 'Enter' && activeIndex >= 0 && activeIndex < filteredSuggestions.length) {
       e.preventDefault();
-      handleSuggestionClick(suggestions[activeIndex]);
+      handleSuggestionClick(filteredSuggestions[activeIndex]);
     }
   };
 
@@ -164,9 +173,9 @@ function SearchBar({ templeList = [], onSearchSelect, variant = 'default' }) {
 
       {isFocused && (
         <div className="search-dropdown">
-          {searchQuery.trim() && suggestions.length > 0 ? (
+          {searchQuery.trim() && filteredSuggestions.length > 0 ? (
             <div className="search-suggestions">
-              {suggestions.map((temple, index) => (
+              {filteredSuggestions.map((temple, index) => (
                 <button
                   key={temple.name}
                   type="button"
@@ -216,5 +225,5 @@ function SearchBar({ templeList = [], onSearchSelect, variant = 'default' }) {
   );
 }
 
-export default SearchBar;
+export default React.memo(SearchBar);
 

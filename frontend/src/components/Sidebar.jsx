@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../hooks/useTheme';
 import AccordionItem from './AccordionItem';
@@ -38,12 +38,17 @@ function Sidebar({ isVisible, onMobileClose }) {
   ];
 
   // Create accordion ID mapping for internal links
-  const getAccordionId = (title) => {
+  const getAccordionId = useCallback((title) => {
     return title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
-  };
+  }, []);
+
+  const visibleMenuItems = useMemo(
+    () => menuItems.filter((item) => item.title !== 'About Meditation Center'),
+    [menuItems]
+  );
 
   const handleMouseDown = () => {
     setIsResizing(true);
@@ -53,7 +58,7 @@ function Sidebar({ isVisible, onMobileClose }) {
     setIsResizing(false);
   };
 
-  const handleMouseMove = (e) => {
+  const handleMouseMove = useCallback((e) => {
     if (!isResizing) return;
     
     // Constrain width between 250px and 500px
@@ -61,18 +66,18 @@ function Sidebar({ isVisible, onMobileClose }) {
     if (newWidth >= 250 && newWidth <= 500) {
       setSidebarWidth(newWidth);
     }
-  };
+  }, [isResizing]);
 
   React.useEffect(() => {
     if (isResizing) {
-      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mousemove', handleMouseMove, { passive: true });
       window.addEventListener('mouseup', handleMouseUp);
       return () => {
         window.removeEventListener('mousemove', handleMouseMove);
         window.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isResizing]);
+  }, [handleMouseMove, isResizing]);
 
   React.useEffect(() => {
     if (!isVisible) {
@@ -103,8 +108,8 @@ function Sidebar({ isVisible, onMobileClose }) {
           </button>
         </div>
         <div className="sidebar-content">
-          {menuItems.filter(item => item.title !== 'About Meditation Center').map((item, index) => (
-            <div key={`${index}-${closeNonce}`} data-accordion-id={getAccordionId(item.title)}>
+          {visibleMenuItems.map((item) => (
+            <div key={`${getAccordionId(item.title)}-${closeNonce}`} data-accordion-id={getAccordionId(item.title)}>
               <AccordionItem
                 title={item.title}
                 content={item.content}
@@ -151,4 +156,4 @@ function Sidebar({ isVisible, onMobileClose }) {
   );
 }
 
-export default Sidebar;
+export default React.memo(Sidebar);

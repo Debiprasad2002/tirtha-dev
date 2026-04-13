@@ -60,8 +60,8 @@ function RequestSiteModal({ isOpen, onClose, initialEmail = '', mapCoordinates =
   const isValidURL = (value) => {
     if (!value) return true;
     try {
-      new URL(value);
-      return true;
+      const url = new URL(value);
+      return ['http:', 'https:'].includes(url.protocol);
     } catch {
       return false;
     }
@@ -128,7 +128,9 @@ function RequestSiteModal({ isOpen, onClose, initialEmail = '', mapCoordinates =
       submittedAt: new Date().toISOString(),
     };
 
-    console.log('Request site form data:', formData);
+    if (import.meta.env.DEV) {
+      console.log('Request site form data:', formData);
+    }
     setErrorMessage('');
 
     // In future, integrate with backend / API call here.
@@ -265,11 +267,11 @@ function RequestSiteModal({ isOpen, onClose, initialEmail = '', mapCoordinates =
             <h3>6. Legal Agreements</h3>
             <label className="checkbox-label">
               <input type="checkbox" checked={agreeTerms} onChange={(e) => setAgreeTerms(e.target.checked)} />
-              I agree to the <a href="https://smlab.niser.ac.in/project/tirtha/#terms" target="_blank" rel="noreferrer">Terms of Use</a> <span>*</span>
+              I agree to the <a href="https://smlab.niser.ac.in/project/tirtha/#terms" target="_blank" rel="noopener noreferrer">Terms of Use</a> <span>*</span>
             </label>
             <label className="checkbox-label">
               <input type="checkbox" checked={agreePrivacy} onChange={(e) => setAgreePrivacy(e.target.checked)} />
-              I agree to the <a href="https://smlab.niser.ac.in/project/tirtha/#privacy" target="_blank" rel="noreferrer">Privacy Policy</a> <span>*</span>
+              I agree to the <a href="https://smlab.niser.ac.in/project/tirtha/#privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> <span>*</span>
             </label>
           </section>
 

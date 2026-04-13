@@ -5,10 +5,30 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+function buildMarkerDataUrl(fillColor) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="25" height="41" viewBox="0 0 25 41"><path d="M12.5 0C6.148 0 1 5.148 1 11.5c0 8.176 10.338 20.523 11.025 21.337a.625.625 0 0 0 .95 0C13.662 32.023 24 19.676 24 11.5 24 5.148 18.852 0 12.5 0z" fill="${fillColor}" stroke="#ffffff" stroke-width="2"/><circle cx="12.5" cy="11.5" r="4.6" fill="#ffffff"/></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function createColorMarkerIcon(fillColor, status) {
+  return L.icon({
+    iconUrl: buildMarkerDataUrl(fillColor),
+    shadowUrl: markerShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41],
+    status,
+  });
+}
 
 const selectionMarkerIcon = L.icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+  iconUrl: buildMarkerDataUrl('#e53935'),
+  shadowUrl: markerShadow,
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
@@ -19,6 +39,13 @@ import RamMandiTooltip from './RamMandiTooltip';
 import SearchBar from './SearchBar';
 import MapLegend from './MapLegend';
 import MapBranding from './MapBranding';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
 
 function IndiaBoundary({ data }) {
   const map = useMap();
@@ -50,7 +77,7 @@ function IndiaBoundary({ data }) {
   );
 }
 
-function MapClickHandler({ onMapClick, isSelectingLocation, selectedPosition, onSelectionPositionChange }) {
+function MapClickHandler({ onMapClick, isSelectingLocation, onSelectionPositionChange }) {
   useMapEvents({
     click: (e) => {
       const newLatLng = { lat: e.latlng.lat, lng: e.latlng.lng };
@@ -64,53 +91,10 @@ function MapClickHandler({ onMapClick, isSelectingLocation, selectedPosition, on
   return null;
 }
 
-// Fix for default marker icon
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-});
-
-function FlyToTarget({ target }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!target?.position) return;
-    map.flyTo(target.position, target.zoom || 12, { duration: 1.2 });
-  }, [target, map]);
-
-  return null;
-}
-
 const markerIconMap = {
-  complete: L.icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41],
-    status: 'complete',
-  }),
-  partial: L.icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-orange.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41],
-    status: 'partial',
-  }),
-  incomplete: L.icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41],
-    status: 'incomplete',
-  }),
+  complete: createColorMarkerIcon('#2ecc71', 'complete'),
+  partial: createColorMarkerIcon('#f39c12', 'partial'),
+  incomplete: createColorMarkerIcon('#3498db', 'incomplete'),
 };
 
 function getCompletionStatus(temple) {
@@ -134,18 +118,27 @@ function MapView({ templeList = [], onMarkerClick, onSearchSelect, showMapSearch
   const zoom = 5;
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchIndiaBoundary = async () => {
       try {
-        const response = await fetch('/India/INDIA_STATES.geojson');
+        const response = await fetch('/India/INDIA_STATES.geojson', { signal: controller.signal });
         const data = await response.json();
         setIndiaBoundary({ type: 'FeatureCollection', features: data.features });
       } catch (error) {
-        console.error('Could not load India boundary:', error);
+        if (error?.name === 'AbortError') return;
+        if (import.meta.env.DEV) {
+          console.error('Could not load India boundary:', error);
+        }
         setIndiaBoundary(null);
       }
     };
 
     fetchIndiaBoundary();
+
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   const baseTempleLocations = useMemo(() => templeList, [templeList]);
@@ -338,7 +331,6 @@ function MapView({ templeList = [], onMarkerClick, onSearchSelect, showMapSearch
         <MapClickHandler
           onMapClick={onMapClick}
           isSelectingLocation={isSelectingLocation}
-          selectedPosition={selectedPosition}
           onSelectionPositionChange={onSelectionPositionChange}
         />
 
@@ -416,4 +408,4 @@ function MapView({ templeList = [], onMarkerClick, onSearchSelect, showMapSearch
   );
 }
 
-export default MapView;
+export default React.memo(MapView);

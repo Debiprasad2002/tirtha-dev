@@ -54,13 +54,15 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
     }
 
     setError('');
-    console.log('Upload metadata:', {
-      target: contributionTarget,
-      fileCount,
-      isSequential: sequentialOrder,
-      allowFullResolution,
-      fileNames,
-    });
+    if (import.meta.env.DEV) {
+      console.log('Upload metadata:', {
+        target: contributionTarget,
+        fileCount,
+        isSequential: sequentialOrder,
+        allowFullResolution,
+        fileNames,
+      });
+    }
 
     alert(`Uploading ${fileCount} image${fileCount > 1 ? 's' : ''} to ${contributionTarget}... (demo)`);
     handleClear();

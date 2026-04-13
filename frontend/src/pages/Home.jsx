@@ -6,7 +6,12 @@ import ModelCard from '../components/ModelCard';
 import MapView from '../components/MapView';
 import ModalViewer from '../components/ModalViewer';
 import ContributeModal from '../components/ContributeModal';
-import RequestSiteModal from '../components/RequestSiteModal';import { TEMPLE_LOCATIONS } from '../constants/templeLocations';import '../styles/Home.css';
+import RequestSiteModal from '../components/RequestSiteModal';
+import { TEMPLE_LOCATIONS } from '../constants/templeLocations';
+import '../styles/Home.css';
+
+const DEFAULT_CONTRIBUTE_TARGET = { title: 'Tirtha', siteName: null };
+const DEFAULT_POSITION = { lat: 20.5937, lng: 78.9629 };
 
 function Home() {
   const { t } = useTranslation(['home', 'common']);
@@ -16,10 +21,10 @@ function Home() {
   const [selectedTemple, setSelectedTemple] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isContributeOpen, setIsContributeOpen] = useState(false);
-  const [contributeTarget, setContributeTarget] = useState({ title: 'Tirtha', siteName: null });
+  const [contributeTarget, setContributeTarget] = useState(DEFAULT_CONTRIBUTE_TARGET);
   const [isRequestSiteOpen, setIsRequestSiteOpen] = useState(false);
   const [isSelectingLocation, setIsSelectingLocation] = useState(false);
-  const [selectedPosition, setSelectedPosition] = useState({ lat: 20.5937, lng: 78.9629 });
+  const [selectedPosition, setSelectedPosition] = useState(DEFAULT_POSITION);
   const [mapCoordinates, setMapCoordinates] = useState(null);
   const [searchTarget, setSearchTarget] = useState(null);
 
@@ -36,12 +41,16 @@ function Home() {
   }, [isFullscreen]);
 
   const handleOpenModel = (templeId) => {
-    console.log('Opening model for temple:', templeId);
+    if (import.meta.env.DEV) {
+      console.log('Opening model for temple:', templeId);
+    }
     // TODO: Implement 3D model viewer
   };
 
   const handleMarkerClick = (temple) => {
-    console.log('Marker clicked:', temple);
+    if (import.meta.env.DEV) {
+      console.log('Marker clicked:', temple);
+    }
     setSelectedTemple(temple);
     setIsModalOpen(true);
   };
@@ -60,7 +69,7 @@ function Home() {
   };
 
   const openGeneralContribute = () => {
-    setContributeTarget({ title: 'Tirtha', siteName: null });
+    setContributeTarget(DEFAULT_CONTRIBUTE_TARGET);
     setIsContributeOpen(true);
   };
 
@@ -79,18 +88,18 @@ function Home() {
 
   const resetRequestSelection = () => {
     setIsSelectingLocation(false);
-    setSelectedPosition({ lat: 20.5937, lng: 78.9629 });
+    setSelectedPosition(DEFAULT_POSITION);
   };
 
   const handleStartLocationSelection = () => {
-    const initial = mapCoordinates || { lat: 20.5937, lng: 78.9629 };
+    const initial = mapCoordinates || DEFAULT_POSITION;
     setSelectedPosition(initial);
     setIsSelectingLocation(true);
     setIsRequestSiteOpen(false);
   };
 
   const handleConfirmLocation = () => {
-    const finalPosition = selectedPosition || { lat: 20.5937, lng: 78.9629 };
+    const finalPosition = selectedPosition || DEFAULT_POSITION;
     setMapCoordinates(finalPosition);
     setSelectedPosition(finalPosition);
     setIsSelectingLocation(false);
@@ -219,7 +228,7 @@ function Home() {
               {temples.map((temple) => (
                 <ModelCard
                   key={temple.id}
-                  image={`https://via.placeholder.com/300x200?text=${temple.title}`}
+                  image={`https://via.placeholder.com/300x200?text=${encodeURIComponent(temple.title)}`}
                   title={temple.title}
                   description={temple.description}
                   onOpen={() => handleOpenModel(temple.id)}

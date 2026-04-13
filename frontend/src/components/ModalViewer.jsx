@@ -33,15 +33,6 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
     ],
   };
 
-  // Debug logging
-  useEffect(() => {
-    if (isOpen) {
-      console.log('ModalViewer opened');
-      console.log('Temple data:', temple);
-      console.log('Model path:', modelPath);
-    }
-  }, [isOpen, temple, modelPath]);
-
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
     const mediaQuery = window.matchMedia('(max-width: 720px)');
@@ -234,4 +225,4 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
   );
 }
 
-export default ModalViewer;
+export default React.memo(ModalViewer);

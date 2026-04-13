@@ -22,4 +22,4 @@ function RamMandiTooltip({ temple }) {
   );
 }
 
-export default RamMandiTooltip;
+export default React.memo(RamMandiTooltip);
