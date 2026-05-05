@@ -7,7 +7,7 @@ import MapView from '../components/MapView';
 import ModalViewer from '../components/ModalViewer';
 import ContributeModal from '../components/ContributeModal';
 import RequestSiteModal from '../components/RequestSiteModal';
-import { TEMPLE_LOCATIONS } from '../constants/templeLocations';
+import { fetchSites } from '../services/sites.service';
 import '../styles/Home.css';
 
 const DEFAULT_CONTRIBUTE_TARGET = { title: 'Tirtha', siteName: null };
@@ -27,6 +27,9 @@ function Home() {
   const [selectedPosition, setSelectedPosition] = useState(DEFAULT_POSITION);
   const [mapCoordinates, setMapCoordinates] = useState(null);
   const [searchTarget, setSearchTarget] = useState(null);
+  const [siteList, setSiteList] = useState([]);
+  const [isSitesLoading, setIsSitesLoading] = useState(true);
+  const [sitesError, setSitesError] = useState('');
 
   const isMobileViewport = () => {
     if (typeof window === 'undefined') return false;
@@ -39,6 +42,38 @@ function Home() {
       setSidebarVisible(true);
     }
   }, [isFullscreen]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadSites = async () => {
+      setIsSitesLoading(true);
+      setSitesError('');
+
+      try {
+        const sites = await fetchSites(controller.signal);
+        setSiteList(sites);
+      } catch (error) {
+        if (error?.name === 'AbortError') return;
+        setSiteList([]);
+        setSitesError('Could not load map sites. Please try again.');
+
+        if (import.meta.env.DEV) {
+          console.error('Failed to fetch sites:', error);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsSitesLoading(false);
+        }
+      }
+    };
+
+    loadSites();
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
 
   const handleOpenModel = (templeId) => {
     if (import.meta.env.DEV) {
@@ -168,13 +203,13 @@ function Home() {
       />
       <div className="main-content">
         {!isFullscreen && (
-          <SearchBar templeList={TEMPLE_LOCATIONS} onSearchSelect={handleSearchSelect} />
+          <SearchBar templeList={siteList} onSearchSelect={handleSearchSelect} />
         )}
         <div className="content-area">
           <div className="hero-section">
             {/* Map component - replaces placeholder */}
             <MapView 
-              templeList={TEMPLE_LOCATIONS}
+              templeList={siteList}
               onMarkerClick={handleMarkerClick}
               onSearchSelect={handleSearchSelect}
               showMapSearch={isFullscreen}
@@ -186,6 +221,18 @@ function Home() {
               onCancelLocationSelection={handleCancelLocationSelection}
               searchTarget={searchTarget}
             />
+
+            {isSitesLoading && (
+              <div className="map-status-overlay map-status-overlay--loading" role="status" aria-live="polite">
+                Loading sites...
+              </div>
+            )}
+
+            {!isSitesLoading && sitesError && (
+              <div className="map-status-overlay map-status-overlay--error" role="alert">
+                {sitesError}
+              </div>
+            )}
             
             <button 
               className="btn-fullscreen-toggle"

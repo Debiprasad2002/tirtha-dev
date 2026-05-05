@@ -74,6 +74,29 @@
   position: relative;
 }
 
+.map-status-overlay {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1002;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 4px 10px var(--shadow-sm);
+}
+
+.map-status-overlay--loading {
+  background: rgba(255, 255, 255, 0.94);
+  color: #2f3b4d;
+}
+
+.map-status-overlay--error {
+  background: rgba(176, 0, 32, 0.9);
+  color: #ffffff;
+}
+
 .home-container.fullscreen-mode .hero-section {
   position: fixed;
   top: 0;
