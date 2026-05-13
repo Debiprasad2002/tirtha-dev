@@ -169,6 +169,8 @@ function MapView({ templeList = [], onMarkerClick, onSearchSelect, showMapSearch
           temple.lng + lngOffset,
         ],
         location: temple.location || 'Ayodhya, Uttar Pradesh',
+        description: temple.description,
+        details: temple.details,
         gifUrl: baseGif,
         modelPath: temple.modelPath || baseModel,
         completionStatus,

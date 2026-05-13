@@ -345,6 +345,31 @@
   text-decoration: underline;
 }
 
+.auth-banner {
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin: 12px 0;
+  font-size: 14px;
+}
+
+.auth-waiting {
+  background: #fffbeb;
+  border: 1px solid #facc15;
+  color: #92400e;
+}
+
+.auth-approved {
+  background: #ecfdf5;
+  border: 1px solid #86efac;
+  color: #065f46;
+}
+
+.auth-banned {
+  background: #fff1f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
 @media (max-width: 766px) {
   .contribute-modal {
     width: calc(100% - 18px);

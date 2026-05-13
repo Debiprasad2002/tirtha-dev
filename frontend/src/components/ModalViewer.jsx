@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next';
 import '../styles/ModalViewer.css';
 
 const ModelViewer3D = lazy(() => import('./ModelViewer3D'));
+const DETAILS_PREVIEW_LENGTH = 220;
 
 function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
   const { t } = useTranslation(['common']);
   const [isMobile, setIsMobile] = useState(
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 720px)').matches : false
   );
+  const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
   const [openSections, setOpenSections] = useState({
     description: true,
     details: true,
@@ -32,6 +34,14 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
       'Information is currently placeholder content for demo purposes.',
     ],
   };
+  const detailsText = typeof temple?.details === 'string' ? temple.details.trim() : '';
+  const detailsList = Array.isArray(temple?.details)
+    ? temple.details.filter((detail) => (typeof detail === 'string' ? detail.trim() : Boolean(detail)))
+    : [];
+  const hasExpandableDetails = detailsText.length > DETAILS_PREVIEW_LENGTH;
+  const detailsPreview = hasExpandableDetails
+    ? `${detailsText.slice(0, DETAILS_PREVIEW_LENGTH).trimEnd()}...`
+    : detailsText;
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -54,6 +64,7 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
 
   useEffect(() => {
     if (!isOpen) {
+      setIsDetailsExpanded(false);
       setOpenSections({
         description: true,
         details: true,
@@ -80,6 +91,7 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
       coordinates: true,
       contributors: true,
     });
+    setIsDetailsExpanded(false);
   }, [isOpen, isMobile]);
 
   const toggleSection = (sectionKey) => {
@@ -117,6 +129,40 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
     );
   };
 
+  const renderDetailsContent = () => {
+    if (detailsList.length > 0) {
+      return (
+        <ul>
+          {detailsList.map((detail, idx) => (
+            <li key={idx}>{detail}</li>
+          ))}
+        </ul>
+      );
+    }
+
+    if (!detailsText) {
+      return <p>Detailed information will be available soon for this temple.</p>;
+    }
+
+    return (
+      <div className="details-copy">
+        <p className={`details-text ${hasExpandableDetails && !isDetailsExpanded ? 'collapsed' : ''}`}>
+          {hasExpandableDetails && !isDetailsExpanded ? detailsPreview : detailsText}
+        </p>
+        {hasExpandableDetails && (
+          <button
+            type="button"
+            className="details-toggle-btn"
+            onClick={() => setIsDetailsExpanded((prev) => !prev)}
+            aria-expanded={isDetailsExpanded}
+          >
+            {isDetailsExpanded ? 'Show less' : 'Read more'}
+          </button>
+        )}
+      </div>
+    );
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -147,19 +193,7 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
 
                   {renderSection('description', 'Description', <p>{templeInfo.description}</p>)}
 
-                  {renderSection(
-                    'details',
-                    'Details',
-                    Array.isArray(templeInfo.details) && templeInfo.details.length > 0 ? (
-                      <ul>
-                        {templeInfo.details.map((detail, idx) => (
-                          <li key={idx}>{detail}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p>Detailed information will be available soon for this temple.</p>
-                    )
-                  )}
+                  {renderSection('details', 'Details', renderDetailsContent())}
 
                   {renderSection(
                     'coordinates',

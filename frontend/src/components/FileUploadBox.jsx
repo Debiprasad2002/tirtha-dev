@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 
-function FileUploadBox({ selectedFiles = [], onFilesChange }) {
+function FileUploadBox({ selectedFiles = [], onFilesChange, allowOpen = true, onAuthRequired = null }) {
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef(null);
 
@@ -32,18 +32,26 @@ function FileUploadBox({ selectedFiles = [], onFilesChange }) {
     ? `${fileCount} file${fileCount > 1 ? 's' : ''} selected: ${fileNames}${fileCount > 3 ? '...' : ''}`
     : 'No files selected';
 
+  const handleOpenRequest = () => {
+    if (!allowOpen) {
+      if (typeof onAuthRequired === 'function') onAuthRequired();
+      return;
+    }
+    inputRef.current?.click();
+  };
+
   return (
     <div
       className={`file-upload-box ${dragActive ? 'drag-active' : ''}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      onClick={() => inputRef.current?.click()}
+      onClick={handleOpenRequest}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter') inputRef.current?.click(); }}
+      onKeyDown={(e) => { if (e.key === 'Enter') handleOpenRequest(); }}
     >
-      <input
+        <input
         ref={inputRef}
         type="file"
         accept="image/*"

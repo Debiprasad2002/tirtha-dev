@@ -10,10 +10,18 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
+import re
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from backend/.env if present so SMTP credentials
+# and other deployment settings are available through os.getenv().
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -37,7 +45,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'sites',
+    'sites.apps.SitesConfig',
 ]
 
 MIDDLEWARE = [
@@ -112,6 +120,60 @@ USE_I18N = True
 
 USE_TZ = True
 
+
+# Google OAuth configuration
+# Client ID for verifying Google ID tokens (sign-in endpoint)
+GOOGLE_OAUTH_CLIENT_ID = '115708159411-q1lpeqtjehsfkbtpe3i6jtfog9p7qrdi.apps.googleusercontent.com'
+
+# Email configuration
+# Gmail SMTP settings are read from environment variables so deployments can
+# configure credentials without changing code.
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = re.sub(r'[\s_-]+', '', os.getenv('EMAIL_HOST_PASSWORD', ''))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'true').strip().lower() in ('1', 'true', 'yes', 'on')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'webmaster@localhost')
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+if EMAIL_HOST_PASSWORD and len(EMAIL_HOST_PASSWORD) != 16:
+    print(
+        f"[email-config] WARNING: EMAIL_HOST_PASSWORD length is {len(EMAIL_HOST_PASSWORD)}; "
+        "Google App Passwords should be 16 continuous characters without spaces."
+    )
+
+# If SMTP credentials are not provided, fall back to console backend in DEBUG
+# so admin actions do not fail while you're configuring email locally.
+if not (EMAIL_HOST_USER and EMAIL_HOST_PASSWORD) and DEBUG:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'formatters': {
+        'verbose': {
+            'format': '[{levelname}] {name}: {message}',
+            'style': '{',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'WARNING',
+    },
+    'loggers': {
+        'sites': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
