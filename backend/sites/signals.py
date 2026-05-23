@@ -1,14 +1,15 @@
 import logging
 
-from django.db.models.signals import post_save, pre_save
+from django.db.models import F
+from django.db.models.signals import post_save, pre_save, post_delete
 from django.dispatch import receiver
 
 from .emails import (
-	send_contributor_approval_email,
-	send_contributor_rejection_email,
-	send_contributor_deactivation_email,
+    send_contributor_approval_email,
+    send_contributor_rejection_email,
+    send_contributor_deactivation_email,
 )
-from .models import Contributor
+from .models import Contributor, ContributionBatch, ContributionImage, Site
 
 logger = logging.getLogger(__name__)
 
@@ -94,3 +95,50 @@ def send_contributor_status_email(sender, instance, created, **kwargs):
 	if previous_is_active and previous_is_active is True and not instance.is_active and not instance.is_banned:
 		logger.info("Contributor %s transitioned approved -> pending; sending deactivation email", instance.email)
 		send_contributor_deactivation_email(instance)
+
+
+
+@receiver(post_save, sender=ContributionBatch)
+def contributor_total_uploads_on_batch_save(sender, instance, created, **kwargs):
+	"""When a new batch is created increment the contributor.total_uploads."""
+	if not created:
+		return
+	try:
+		Contributor.objects.filter(pk=instance.contributor.pk).update(total_uploads=F('total_uploads') + 1)
+		logger.info("Incremented total_uploads for contributor %s", instance.contributor.email)
+	except Exception as e:
+		logger.exception("Error incrementing total_uploads: %s", e)
+
+
+@receiver(post_delete, sender=ContributionBatch)
+def contributor_total_uploads_on_batch_delete(sender, instance, **kwargs):
+	"""When a batch is deleted decrement the contributor.total_uploads (non-negative)."""
+	try:
+		Contributor.objects.filter(pk=instance.contributor.pk).update(total_uploads=F('total_uploads') - 1)
+		logger.info("Decremented total_uploads for contributor %s", instance.contributor.email)
+	except Exception as e:
+		logger.exception("Error decrementing total_uploads: %s", e)
+
+
+@receiver(post_save, sender=ContributionImage)
+def update_site_and_batch_on_image_save(sender, instance, created, **kwargs):
+	"""Update site.total_images and batch.total_images when images are added."""
+	if not created:
+		return
+	try:
+		Site.objects.filter(pk=instance.site.pk).update(total_images=F('total_images') + 1)
+		ContributionBatch.objects.filter(pk=instance.batch.pk).update(total_images=F('total_images') + 1)
+		logger.info("Incremented site and batch image counters for site=%s batch=%s", instance.site.pk, instance.batch.pk)
+	except Exception as e:
+		logger.exception("Error updating image counters: %s", e)
+
+
+@receiver(post_delete, sender=ContributionImage)
+def update_site_and_batch_on_image_delete(sender, instance, **kwargs):
+	"""Decrement counters when images are removed."""
+	try:
+		Site.objects.filter(pk=instance.site.pk, total_images__gt=0).update(total_images=F('total_images') - 1)
+		ContributionBatch.objects.filter(pk=instance.batch.pk, total_images__gt=0).update(total_images=F('total_images') - 1)
+		logger.info("Decremented site and batch image counters for site=%s batch=%s", instance.site.pk, instance.batch.pk)
+	except Exception as e:
+		logger.exception("Error decrementing image counters: %s", e)

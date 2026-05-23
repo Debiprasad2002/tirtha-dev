@@ -1,9 +1,13 @@
+import tempfile
+
 from unittest.mock import patch
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
+from django.test import override_settings
 from django.urls import reverse
 
-from .models import Site, Contributor
+from .models import Site, Contributor, ContributionBatch, ContributionImage
 
 
 class SiteApiTests(TestCase):
@@ -53,3 +57,69 @@ class ContributorEmailSignalTests(TestCase):
 		contributor.save(update_fields=['is_banned'])
 
 		mock_send_email.assert_called_once_with(contributor)
+
+
+class ContributionUploadApiTests(TestCase):
+	def setUp(self):
+		self.site = Site.objects.create(name='Ram Mandir', latitude=26.7956, longitude=82.1947)
+		self.contributor = Contributor.objects.create(
+			name='Debi',
+			email='debi-upload@example.com',
+			is_active=True,
+			is_banned=False,
+		)
+		session = self.client.session
+		session['contributor_email'] = self.contributor.email
+		session.save()
+
+	def _make_image(self, name):
+		png_bytes = (
+			b'\x89PNG\r\n\x1a\n'
+			b'\x00\x00\x00\rIHDR'
+			b'\x00\x00\x00\x01'
+			b'\x00\x00\x00\x01'
+			b'\x08\x06\x00\x00\x00'
+			b'\x1f\x15\xc4\x89'
+			b'\x00\x00\x00\x0cIDAT'
+			b'\x08\xd7c\xf8\xff\xff?\x00\x05\xfe\x02\xfeA\xb4\x1a\x9d'
+			b'\x00\x00\x00\x00IEND\xaeB`\x82'
+		)
+		return SimpleUploadedFile(name, png_bytes, content_type='image/png')
+
+	@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+	def test_upload_creates_batch_and_images(self):
+		response = self.client.post(
+			reverse('contribution-upload'),
+			{
+				'site_id': str(self.site.id),
+				'images': [self._make_image('ram1.png'), self._make_image('ram2.png')],
+			},
+		)
+
+		self.assertEqual(response.status_code, 201)
+		payload = response.json()
+		self.assertEqual(payload['status'], 'success')
+		self.assertEqual(payload['batch']['total_images'], 2)
+		self.assertEqual(ContributionBatch.objects.count(), 1)
+		batch = ContributionBatch.objects.get()
+		self.assertEqual(batch.site, self.site)
+		self.assertEqual(batch.contributor, self.contributor)
+		self.assertEqual(batch.total_images, 2)
+		self.assertEqual(batch.status, ContributionBatch.Status.COMPLETED)
+		self.assertEqual(ContributionImage.objects.filter(batch=batch).count(), 2)
+
+	@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+	def test_upload_rejects_banned_contributor(self):
+		self.contributor.is_banned = True
+		self.contributor.save(update_fields=['is_banned'])
+
+		response = self.client.post(
+			reverse('contribution-upload'),
+			{
+				'site_id': str(self.site.id),
+				'images': [self._make_image('ram1.png')],
+			},
+		)
+
+		self.assertEqual(response.status_code, 403)
+		self.assertEqual(ContributionBatch.objects.count(), 0)

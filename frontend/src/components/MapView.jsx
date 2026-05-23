@@ -91,6 +91,21 @@ function MapClickHandler({ onMapClick, isSelectingLocation, onSelectionPositionC
   return null;
 }
 
+function FlyToTarget({ target }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!target?.position) return;
+
+    map.flyTo(target.position, target.zoom ?? 12, {
+      animate: true,
+      duration: 0.9,
+    });
+  }, [map, target?.position?.[0], target?.position?.[1], target?.zoom]);
+
+  return null;
+}
+
 const markerIconMap = {
   complete: createColorMarkerIcon('#2ecc71', 'complete'),
   partial: createColorMarkerIcon('#f39c12', 'partial'),
@@ -162,7 +177,8 @@ function MapView({ templeList = [], onMarkerClick, onSearchSelect, showMapSearch
       const completionStatus = getCompletionStatus(temple);
 
       return {
-        id: `temple-${idx}-${temple.name.replace(/\s+/g, '-').toLowerCase()}`,
+        id: temple.id,
+        siteId: temple.id,
         name: temple.name,
         position: [
           temple.lat + latOffset,

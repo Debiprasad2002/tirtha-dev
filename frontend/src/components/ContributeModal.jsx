@@ -1,8 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
 import FileUploadBox from './FileUploadBox';
+import Snackbar from './Snackbar';
+import { getApiBaseUrl } from '../utils/apiConfig';
+import { validateImageFile } from '../utils/imageValidation';
 import '../styles/ContributeModal.css';
 
-function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = null }) {
+function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = null, siteId = null }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [contributor, setContributor] = useState(null);
   const [authMessage, setAuthMessage] = useState('');
@@ -12,6 +15,9 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
   const [showUploadOptions, setShowUploadOptions] = useState(false);
   const [showChecklist, setShowChecklist] = useState(false);
   const [error, setError] = useState('');
+  const [toastItems, setToastItems] = useState([]);
+  const [isUploadBusy, setIsUploadBusy] = useState(false);
+  const [isValidationBusy, setIsValidationBusy] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -37,7 +43,7 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
     // Fetch current contributor session from backend
     const fetchCurrent = async () => {
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
+        const API_BASE = getApiBaseUrl();
         const res = await fetch(`${API_BASE}/api/auth/current-contributor/`, { credentials: 'include' });
         if (!res.ok) return;
         const data = await res.json();
@@ -69,7 +75,7 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
     }
 
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
+      const API_BASE = getApiBaseUrl();
       const res = await fetch(`${API_BASE}/api/auth/google-login/`, {
         method: 'POST',
         credentials: 'include',
@@ -173,12 +179,111 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
     setError('');
   };
 
+  const addToast = (message, variant = 'info', duration = 5000) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    setToastItems((current) => [...current, { id, message, variant }]);
+    // If duration is provided (number), auto-dismiss; otherwise persist until user click
+    if (typeof duration === 'number' && duration > 0) {
+      window.setTimeout(() => {
+        setToastItems((current) => current.filter((item) => item.id !== id));
+      }, duration);
+    }
+  };
+
+  const dismissToast = (id) => {
+    setToastItems((current) => current.filter((item) => item.id !== id));
+  };
+
+  // Dismiss all toasts when user clicks anywhere in the document (per UX request)
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const handleGlobalClick = () => {
+      if (toastItems.length > 0) setToastItems([]);
+    };
+    document.addEventListener('click', handleGlobalClick);
+    return () => document.removeEventListener('click', handleGlobalClick);
+  }, [isOpen, toastItems]);
+
+  const handleRawFiles = async (files) => {
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    setIsValidationBusy(true);
+    const validatedFiles = [];
+
+    const existingKeys = new Set(selectedFiles.map((file) => `${file.name}-${file.size}-${file.lastModified}`));
+
+    for (const file of Array.from(files)) {
+      const fileKey = `${file.name}-${file.size}-${file.lastModified}`;
+
+      if (!file.type.startsWith('image/')) {
+        addToast(`Ignored ${file.name}: unsupported file type.`, 'warning', 6000);
+        continue;
+      }
+
+      // Always validate the file so repeated invalid attempts show a toast every time
+      const validation = await validateImageFile(file, { minDimension: 1080 });
+      if (!validation.valid) {
+        // show warning and auto-dismiss after 6s
+        addToast(`Ignored ${file.name}: ${validation.reason}`, 'warning', 6000);
+        continue;
+      }
+
+      if (existingKeys.has(fileKey)) {
+        addToast(`${file.name} already added.`, 'info', 3000);
+        continue;
+      }
+
+      validatedFiles.push(file);
+      existingKeys.add(fileKey);
+    }
+
+    if (validatedFiles.length > 0) {
+      setSelectedFiles((current) => [...current, ...validatedFiles]);
+      addToast(`${validatedFiles.length} image${validatedFiles.length > 1 ? 's' : ''} ready for upload.`, 'info');
+    }
+
+    setIsValidationBusy(false);
+  };
+
+  const checkPreUpload = async () => {
+    if (!siteId) {
+      return {
+        allow_upload: false,
+        message: 'No site selected for upload.',
+      };
+    }
+
+    try {
+      const API_BASE = getApiBaseUrl();
+      const response = await fetch(`${API_BASE}/api/contributions/upload-check/?site_id=${encodeURIComponent(String(siteId))}`, {
+        credentials: 'include',
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        return {
+          allow_upload: false,
+          message: data?.message || 'Upload validation failed.',
+        };
+      }
+      return {
+        allow_upload: data?.allow_upload === true,
+        message: data?.message || data?.output || 'Ready to upload.',
+      };
+    } catch (err) {
+      return {
+        allow_upload: false,
+        message: 'Unable to validate upload permissions. Please try again.',
+      };
+    }
+  };
+
   const contributionTarget = siteName || targetName;
   const fileCount = selectedFiles.length;
-  const fileNames = selectedFiles.map((file) => file.name).join(', ');
   const googleButtonRef = useRef(null);
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!fileCount) {
       setError('Please select at least one file before uploading.');
       return;
@@ -187,24 +292,64 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
       setError('Please accept the terms of use and privacy policy.');
       return;
     }
-
-    setError('');
-    if (import.meta.env.DEV) {
-      console.log('Upload metadata:', {
-        target: contributionTarget,
-        fileCount,
-        isSequential: sequentialOrder,
-        allowFullResolution,
-        fileNames,
-      });
+    if (!siteId) {
+      setError('No site is selected for this contribution.');
+      return;
+    }
+    if (!(contributor && contributor.status === 'approved')) {
+      setError('You must be signed in and approved before uploading.');
+      return;
     }
 
-    alert(`Uploading ${fileCount} image${fileCount > 1 ? 's' : ''} to ${contributionTarget}... (demo)`);
-    handleClear();
-    onClose();
+    setError('');
+    setIsUploadBusy(true);
+
+    const validation = await checkPreUpload();
+    if (!validation.allow_upload) {
+      setError(validation.message || 'Upload validation failed.');
+      setIsUploadBusy(false);
+      return;
+    }
+
+    try {
+      const API_BASE = getApiBaseUrl();
+      const formData = new FormData();
+      formData.append('site_id', String(siteId));
+      formData.append('sequential_order', sequentialOrder ? 'true' : 'false');
+      formData.append('allow_full_resolution', allowFullResolution ? 'true' : 'false');
+
+      selectedFiles.forEach((file) => {
+        formData.append('images', file, file.name);
+      });
+
+      const res = await fetch(`${API_BASE}/api/contributions/upload/`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.message || 'Upload failed.');
+        setIsUploadBusy(false);
+        return;
+      }
+
+      if (import.meta.env.DEV) {
+        console.log('Upload response:', data);
+      }
+
+      addToast('Upload completed successfully.', 'info');
+      handleClear();
+      onClose();
+    } catch (err) {
+      setError('Upload failed. Please try again.');
+    } finally {
+      setIsUploadBusy(false);
+    }
   };
 
-  const submitDisabled = !fileCount || !termsAccepted;
+  const submitDisabled = !fileCount || !termsAccepted || !siteId || !(contributor && contributor.status === 'approved') || isUploadBusy || isValidationBusy;
 
   if (!isOpen) return null;
 
@@ -241,11 +386,11 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
           <h3>Model Upload</h3>
           <FileUploadBox
             selectedFiles={selectedFiles}
-            onFilesChange={setSelectedFiles}
+            onFilesChange={handleRawFiles}
             allowOpen={Boolean(contributor && contributor.status === 'approved')}
             onAuthRequired={handleAuthRequired}
           />
-          <p className="upload-summary">{fileCount ? `${fileCount} file${fileCount > 1 ? 's' : ''} selected` : 'No files selected yet.'}</p>
+          <p className="upload-summary">{isValidationBusy ? 'Validating selected files...' : fileCount ? `${fileCount} file${fileCount > 1 ? 's' : ''} selected` : 'No files selected yet.'}</p>
         </div>
 
         <div className="section upload-options collapsible-section">
@@ -334,6 +479,16 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
         </div>
 
         {error && <p className="error-text">{error}</p>}
+        <div className="snackbar-container">
+          {toastItems.map((toast) => (
+            <Snackbar
+              key={toast.id}
+              message={toast.message}
+              variant={toast.variant}
+              onClose={() => dismissToast(toast.id)}
+            />
+          ))}
+        </div>
 
         <div className="modal-actions">
           <button type="button" className="btn clear-btn" onClick={handleClear}>Clear</button>

@@ -5,6 +5,10 @@ function FileUploadBox({ selectedFiles = [], onFilesChange, allowOpen = true, on
   const inputRef = useRef(null);
 
   const handleFileSelect = (files) => {
+    if (!allowOpen) {
+      if (typeof onAuthRequired === 'function') onAuthRequired();
+      return;
+    }
     if (files && files.length > 0) {
       onFilesChange(Array.from(files));
     }
@@ -12,6 +16,9 @@ function FileUploadBox({ selectedFiles = [], onFilesChange, allowOpen = true, on
 
   const handleDragOver = (e) => {
     e.preventDefault();
+    if (!allowOpen) {
+      return;
+    }
     setDragActive(true);
   };
 

@@ -111,7 +111,11 @@ function Home() {
   const openTempleContribute = (temple) => {
     setIsModalOpen(false);
     setSidebarVisible(false);
-    setContributeTarget({ title: temple?.name || 'Tirtha', siteName: temple?.name || null });
+    setContributeTarget({
+      title: temple?.name || 'Tirtha',
+      siteName: temple?.name || null,
+      siteId: temple?.siteId || temple?.id || null,
+    });
     setIsContributeOpen(true);
   };
 
@@ -300,6 +304,7 @@ function Home() {
         onClose={() => setIsContributeOpen(false)}
         targetName={contributeTarget.title}
         siteName={contributeTarget.siteName}
+        siteId={contributeTarget.siteId}
       />
 
       <RequestSiteModal

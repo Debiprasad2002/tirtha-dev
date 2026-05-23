@@ -1,11 +1,6 @@
-const DEFAULT_BACKEND_BASE_URL = 'http://127.0.0.1:8000';
-const SITES_API_PATH = '/api/sites/';
+import { getApiBaseUrl, logApiCall } from '../utils/apiConfig';
 
-function getBackendBaseUrl() {
-  const fromEnv = import.meta.env.VITE_BACKEND_BASE_URL;
-  const baseUrl = (fromEnv || DEFAULT_BACKEND_BASE_URL).trim();
-  return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-}
+const SITES_API_PATH = '/api/sites/';
 
 function normalizeSite(site) {
   const lat = Number(site.latitude);
@@ -29,25 +24,39 @@ function normalizeSite(site) {
 }
 
 export async function fetchSites(signal) {
-  const endpoint = `${getBackendBaseUrl()}${SITES_API_PATH}`;
-  const response = await fetch(endpoint, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-    },
-    signal,
-  });
+  const endpoint = `${getApiBaseUrl()}${SITES_API_PATH}`;
+  
+  logApiCall(endpoint, 'GET');
 
-  if (!response.ok) {
-    throw new Error(`Failed to load sites (${response.status})`);
+  try {
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+      signal,
+      mode: 'cors',
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const payload = await response.json();
+    const sites = Array.isArray(payload) ? payload : payload?.results;
+
+    if (!Array.isArray(sites)) {
+      throw new Error('Unexpected API response format for sites');
+    }
+
+    logApiCall(endpoint, 'GET', { success: true, count: sites.length });
+
+    return sites.map(normalizeSite).filter(Boolean);
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw error;
+    }
+    logApiCall(endpoint, 'GET', { error: error.message });
+    throw new Error(`Failed to load sites: ${error.message}`);
   }
-
-  const payload = await response.json();
-  const sites = Array.isArray(payload) ? payload : payload?.results;
-
-  if (!Array.isArray(sites)) {
-    throw new Error('Unexpected API response format for sites');
-  }
-
-  return sites.map(normalizeSite).filter(Boolean);
 }
