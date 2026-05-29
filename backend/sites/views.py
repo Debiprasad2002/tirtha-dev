@@ -1,29 +1,54 @@
 import json
 import os
+import re
 from urllib.parse import urlparse
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import HttpResponse, JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
 from .models import Site, Contributor, ContributionBatch, ContributionImage, SiteSubmissionRequest
 
 
+def _allowed_origin(origin):
+    if not origin:
+        return None
+
+    if settings.DEBUG:
+        if re.match(r"^https?://(?:localhost|127(?:\.\d+){3}|\d{1,3}(?:\.\d+){3})(?::\d+)?$", origin):
+            return origin
+
+    allowed_origins = getattr(settings, 'CORS_ALLOWED_ORIGINS', [])
+    if origin in allowed_origins:
+        return origin
+
+    return None
+
+
 def _cors_headers(response, origin):
-	response["Access-Control-Allow-Origin"] = origin
-	response["Access-Control-Allow-Credentials"] = "true"
-	response["Access-Control-Allow-Headers"] = "Content-Type"
-	response["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-	return response
+    allowed_origin = _allowed_origin(origin)
+    if not allowed_origin:
+        return response
+
+    response["Access-Control-Allow-Origin"] = allowed_origin
+    response["Vary"] = "Origin"
+    response["Access-Control-Allow-Credentials"] = "true"
+    response["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-CSRFToken, X-Requested-With"
+    response["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return response
 
 
 def _json_error(message, status=400, **extra):
 	payload = {"status": "error", "message": message}
 	payload.update(extra)
 	return JsonResponse(payload, status=status)
+
+
+MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024
+MAX_IMAGE_PIXELS = 25_000_000
 
 
 def _get_request_files(request):
@@ -34,6 +59,12 @@ def _get_request_files(request):
 
 
 def _validate_image_file(uploaded_file):
+	if uploaded_file is None:
+		raise ValidationError("Image file is required.")
+
+	if hasattr(uploaded_file, 'size') and uploaded_file.size > MAX_UPLOAD_SIZE_BYTES:
+		raise ValidationError("Image file must be 10 MB or smaller.")
+
 	content_type = getattr(uploaded_file, "content_type", "") or ""
 	if not content_type.startswith("image/"):
 		raise ValidationError("Only image files can be uploaded.")
@@ -49,9 +80,12 @@ def _validate_image_file(uploaded_file):
 		return
 
 	try:
+		Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 		uploaded_file.seek(0)
 		with Image.open(uploaded_file) as image:
 			image.verify()
+	except getattr(__import__('PIL').Image, 'DecompressionBombError', Exception):
+		raise ValidationError("Image file is too large or contains too many pixels.")
 	finally:
 		try:
 			uploaded_file.seek(0)
@@ -113,7 +147,7 @@ def google_login(request):
 	status (approved / waiting / banned / invalid_token).
 	"""
 
-	origin = request.META.get('HTTP_ORIGIN') or '*'
+	origin = request.headers.get('Origin')
 	if request.method == 'OPTIONS':
 		resp = HttpResponse(status=204)
 		return _cors_headers(resp, origin)
@@ -207,7 +241,8 @@ def google_login(request):
 	return _cors_headers(resp, origin)
 
 
-@require_GET
+@ensure_csrf_cookie
+@require_http_methods(["GET", "OPTIONS"])
 def current_contributor(request):
 	"""Return the currently authenticated contributor (based on session)."""
 
@@ -233,14 +268,10 @@ def current_contributor(request):
 		message = "Signed in and approved."
 
 	# Handle CORS preflight for GET as well
-	origin = request.META.get('HTTP_ORIGIN') or '*'
+	origin = request.headers.get('Origin')
 	if request.method == 'OPTIONS':
 		resp = HttpResponse()
-		resp["Access-Control-Allow-Origin"] = origin
-		resp["Access-Control-Allow-Methods"] = "GET, OPTIONS"
-		resp["Access-Control-Allow-Headers"] = "Content-Type"
-		resp["Access-Control-Allow-Credentials"] = "true"
-		return resp
+		return _cors_headers(resp, origin)
 
 	resp = JsonResponse(
 		{
@@ -259,10 +290,9 @@ def current_contributor(request):
 	return _cors_headers(resp, origin)
 
 
-@csrf_exempt
 @require_http_methods(["POST", "OPTIONS"])
 def site_submission_request(request):
-	origin = request.META.get("HTTP_ORIGIN") or "*"
+	origin = request.headers.get('Origin')
 	if request.method == "OPTIONS":
 		return _cors_headers(HttpResponse(status=204), origin)
 
@@ -326,10 +356,9 @@ def site_submission_request(request):
 	return _cors_headers(response, origin)
 
 
-@csrf_exempt
 @require_http_methods(["POST", "OPTIONS"])
 def upload_contributions(request):
-	origin = request.META.get("HTTP_ORIGIN") or "*"
+	origin = request.headers.get('Origin')
 	if request.method == "OPTIONS":
 		return _cors_headers(HttpResponse(status=204), origin)
 
@@ -344,9 +373,7 @@ def upload_contributions(request):
 	try:
 		site = Site.objects.get(pk=site_id)
 	except (Site.DoesNotExist, ValueError, TypeError):
-		site = Site.objects.filter(name__iexact=site_id).first()
-		if site is None:
-			return _cors_headers(_json_error("Invalid site_id.", status=404), origin)
+		return _cors_headers(_json_error("Invalid site_id.", status=404), origin)
 
 	uploaded_files = _get_request_files(request)
 	if not uploaded_files:
@@ -409,10 +436,9 @@ def upload_contributions(request):
 	return _cors_headers(response, origin)
 
 
-@csrf_exempt
 @require_http_methods(["GET", "OPTIONS"])
 def upload_check(request):
-	origin = request.META.get("HTTP_ORIGIN") or "*"
+	origin = request.headers.get('Origin')
 	if request.method == "OPTIONS":
 		return _cors_headers(HttpResponse(status=204), origin)
 
@@ -427,9 +453,7 @@ def upload_check(request):
 	try:
 		site = Site.objects.get(pk=site_id)
 	except (Site.DoesNotExist, ValueError, TypeError):
-		site = Site.objects.filter(name__iexact=site_id).first()
-		if site is None:
-			return _cors_headers(_json_error("Invalid site_id.", status=404), origin)
+		return _cors_headers(_json_error("Invalid site_id.", status=404), origin)
 
 	response = JsonResponse({"allow_upload": True, "message": "Ready to upload images."}, status=200)
 	return _cors_headers(response, origin)

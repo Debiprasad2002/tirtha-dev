@@ -3,46 +3,53 @@ from django.http import HttpResponse
 import re
 
 
-class DevCorsMiddleware:
-    """Allow local frontend origins to call the API during development.
+class CorsMiddleware:
+    """Enforce CORS origin validation for the backend API.
 
-    This middleware is intentionally permissive for local development and
-    accepts localhost, 127.0.0.1 and LAN IP addresses (e.g. 192.168.x.x).
-    It only runs when `DEBUG` is True.
+    During development, local frontend origins are also accepted so the
+    Vite dev server can access the API.
     """
 
-    ORIGIN_RE = re.compile(r"^https?://(?:localhost|127(?:\.\d+){3}|\d{1,3}(?:\.\d{1,3}){3})(?::\d+)?$")
+    ORIGIN_RE = re.compile(
+        r"^https?://(?:localhost|127(?:\.\d+){3}|\d{1,3}(?:\.\d+){3})(?::\d+)?$"
+    )
 
     def __init__(self, get_response):
         self.get_response = get_response
 
-    def __call__(self, request):
-        # During development, respond to CORS preflight requests early
-        if settings.DEBUG:
-            origin = request.headers.get('Origin')
-            if origin and self.ORIGIN_RE.match(origin):
-                # If this is a preflight request, return immediately with headers
-                if request.method == 'OPTIONS':
-                    resp = HttpResponse()
-                    resp['Access-Control-Allow-Origin'] = origin
-                    resp['Vary'] = 'Origin'
-                    resp['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-                    resp['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-                    resp['Access-Control-Allow-Credentials'] = 'true'
-                    return resp
+    def _allowed_origin(self, origin):
+        if not origin:
+            return None
 
-        response = self.get_response(request)
+        if settings.DEBUG and self.ORIGIN_RE.match(origin):
+            return origin
 
-        if not settings.DEBUG:
+        allowed_origins = getattr(settings, 'CORS_ALLOWED_ORIGINS', [])
+        if origin in allowed_origins:
+            return origin
+
+        return None
+
+    def _apply_cors(self, response, origin):
+        if not origin:
             return response
 
-        origin = request.headers.get('Origin')
-        if origin and self.ORIGIN_RE.match(origin):
-            response['Access-Control-Allow-Origin'] = origin
-            response['Vary'] = 'Origin'
-            # Allow POST for the google-login endpoint and allow credentials
-            response['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-            response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-            response['Access-Control-Allow-Credentials'] = 'true'
-
+        response['Access-Control-Allow-Origin'] = origin
+        response['Vary'] = 'Origin'
+        response['Access-Control-Allow-Credentials'] = 'true'
+        response['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response['Access-Control-Allow-Headers'] = (
+            'Content-Type, Authorization, X-CSRFToken, X-Requested-With'
+        )
         return response
+
+    def __call__(self, request):
+        origin = request.headers.get('Origin')
+        allowed_origin = self._allowed_origin(origin)
+
+        if request.method == 'OPTIONS':
+            resp = HttpResponse()
+            return self._apply_cors(resp, allowed_origin)
+
+        response = self.get_response(request)
+        return self._apply_cors(response, allowed_origin)
