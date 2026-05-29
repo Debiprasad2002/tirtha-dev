@@ -34,7 +34,11 @@ function FileUploadBox({ selectedFiles = [], onFilesChange, allowOpen = true, on
   };
 
   const fileCount = selectedFiles.length;
-  const fileNames = selectedFiles.map((file) => file.name).slice(0, 3).join(', ');
+  const fileNames = selectedFiles
+    .map((item) => (item?.name || item?.file?.name || ''))
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(', ');
   const fileLabel = fileCount
     ? `${fileCount} file${fileCount > 1 ? 's' : ''} selected: ${fileNames}${fileCount > 3 ? '...' : ''}`
     : 'No files selected';

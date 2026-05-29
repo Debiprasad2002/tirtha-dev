@@ -52,7 +52,7 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
         } else if (data && data.status === 'anonymous') {
           setContributor({ status: 'anonymous', info: null });
         }
-      } catch (err) {
+      } catch {
         // ignore
       }
     };
@@ -64,6 +64,7 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
   useEffect(() => {
     if (!isOpen) return;
     initGsi();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   // Google Identity Services integration
@@ -101,12 +102,12 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
       } else {
         setAuthMessage('Unexpected server response.');
       }
-    } catch (err) {
+    } catch {
       setAuthMessage('Sign-in failed.');
     }
   };
 
-  const loadGsi = () => new Promise((resolve) => {
+  const loadGsi = () => new Promise((resolve, reject) => {
     if (window.google && window.google.accounts && window.google.accounts.id) {
       resolve();
       return;
@@ -116,16 +117,24 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
     s.async = true;
     s.defer = true;
     s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Google Identity script failed to load'));
     document.head.appendChild(s);
   });
 
   const initGsi = async () => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '115708159411-q1lpeqtjehsfkbtpe3i6jtfog9p7qrdi.apps.googleusercontent.com';
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     if (!clientId) {
       setAuthMessage('Missing Google client ID (VITE_GOOGLE_CLIENT_ID).');
       return;
     }
-    await loadGsi();
+
+    try {
+      await loadGsi();
+    } catch {
+      setAuthMessage('Unable to load Google Identity Services. Please check your network or browser settings.');
+      return;
+    }
+
     if (window.google && window.google.accounts && window.google.accounts.id) {
       try {
         window.google.accounts.id.initialize({
@@ -139,22 +148,16 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
               theme: 'outline',
               size: 'large',
             });
-          } catch (err) {
-            // ignore render errors
+          } catch {
+            setAuthMessage('Unable to render Google sign-in button.');
           }
         }
-      } catch (err) {
-        // ignore
+      } catch {
+        setAuthMessage('Unable to initialize Google sign-in.');
       }
+    } else {
+      setAuthMessage('Google Identity Services is unavailable in this browser.');
     }
-  };
-
-  const handleGoogleSignInClick = async () => {
-    setAuthMessage('Signing in with Google...');
-    // Ensure GSI is initialized and the button is rendered (user can click it).
-    await initGsi();
-    // Note: The rendered button will handle the OAuth flow when clicked.
-    // We don't call prompt() since it opens off-center; the rendered button is more reliable.
   };
 
   const handleAuthRequired = () => {
@@ -164,12 +167,21 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
       if (googleButtonRef?.current && typeof googleButtonRef.current.scrollIntoView === 'function') {
         googleButtonRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-    } catch (err) {
+    } catch {
       // ignore
     }
   };
 
+  const revokePreviewUrls = (items) => {
+    items.forEach((item) => {
+      if (item?.previewUrl) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+    });
+  };
+
   const handleClear = () => {
+    revokePreviewUrls(selectedFiles);
     setSelectedFiles([]);
     setSequentialOrder(false);
     setAllowFullResolution(false);
@@ -177,6 +189,28 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
     setShowChecklist(false);
     setTermsAccepted(false);
     setError('');
+  };
+
+  const handleRemoveFile = (fileId) => {
+    setSelectedFiles((current) => {
+      const updated = current.filter((item) => {
+        if (item.id === fileId) {
+          if (item.previewUrl) {
+            URL.revokeObjectURL(item.previewUrl);
+          }
+          return false;
+        }
+        return true;
+      });
+      return updated;
+    });
+  };
+
+  const getFileSizeLabel = (size) => {
+    if (size > 1024 * 1024) {
+      return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    return `${Math.round(size / 1024)} KB`;
   };
 
   const addToast = (message, variant = 'info', duration = 5000) => {
@@ -210,38 +244,36 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
     }
 
     setIsValidationBusy(true);
-    const validatedFiles = [];
-
-    const existingKeys = new Set(selectedFiles.map((file) => `${file.name}-${file.size}-${file.lastModified}`));
+    const nextFiles = [];
+    const existingKeys = new Set(selectedFiles.map((item) => item.id));
+    let addedCount = 0;
 
     for (const file of Array.from(files)) {
       const fileKey = `${file.name}-${file.size}-${file.lastModified}`;
-
-      if (!file.type.startsWith('image/')) {
-        addToast(`Ignored ${file.name}: unsupported file type.`, 'warning', 6000);
-        continue;
-      }
-
-      // Always validate the file so repeated invalid attempts show a toast every time
-      const validation = await validateImageFile(file, { minDimension: 1080 });
-      if (!validation.valid) {
-        // show warning and auto-dismiss after 6s
-        addToast(`Ignored ${file.name}: ${validation.reason}`, 'warning', 6000);
-        continue;
-      }
-
       if (existingKeys.has(fileKey)) {
         addToast(`${file.name} already added.`, 'info', 3000);
         continue;
       }
 
-      validatedFiles.push(file);
+      const validation = await validateImageFile(file, { minDimension: 640, warningDimension: 1080 });
+      const previewUrl = URL.createObjectURL(file);
+      nextFiles.push({
+        id: fileKey,
+        file,
+        previewUrl,
+        validation,
+      });
       existingKeys.add(fileKey);
+      addedCount += 1;
+
+      if (validation.severity === 'invalid') {
+        addToast(`Ignored ${file.name}: ${validation.reason}`, 'warning', 6000);
+      }
     }
 
-    if (validatedFiles.length > 0) {
-      setSelectedFiles((current) => [...current, ...validatedFiles]);
-      addToast(`${validatedFiles.length} image${validatedFiles.length > 1 ? 's' : ''} ready for upload.`, 'info');
+    if (nextFiles.length > 0) {
+      setSelectedFiles((current) => [...current, ...nextFiles]);
+      addToast(`${addedCount} file${addedCount > 1 ? 's' : ''} added to preview.`, 'info');
     }
 
     setIsValidationBusy(false);
@@ -271,7 +303,7 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
         allow_upload: data?.allow_upload === true,
         message: data?.message || data?.output || 'Ready to upload.',
       };
-    } catch (err) {
+    } catch {
       return {
         allow_upload: false,
         message: 'Unable to validate upload permissions. Please try again.',
@@ -280,24 +312,44 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
   };
 
   const contributionTarget = siteName || targetName;
-  const fileCount = selectedFiles.length;
+  const totalSelected = selectedFiles.length;
+  const readyCount = selectedFiles.filter((item) => item.validation?.severity === 'valid').length;
+  const warningCount = selectedFiles.filter((item) => item.validation?.severity === 'warning').length;
+  const invalidCount = selectedFiles.filter((item) => item.validation?.severity === 'invalid').length;
+  const uploadableFiles = selectedFiles.filter((item) => item.validation?.severity !== 'invalid');
+  const uploadButtonLabel = uploadableFiles.length > 0
+    ? `Upload ${uploadableFiles.length} Image${uploadableFiles.length > 1 ? 's' : ''}`
+    : 'Upload';
   const googleButtonRef = useRef(null);
 
+  const getCsrfToken = () => {
+    const match = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+    return match ? match[2] : null;
+  };
+
   const handleUpload = async () => {
-    if (!fileCount) {
-      setError('Please select at least one file before uploading.');
+    if (uploadableFiles.length === 0) {
+      const msg = 'No valid images available for upload. Remove invalid files or select more images.';
+      setError(msg);
+      addToast(msg, 'error', 5000);
       return;
     }
     if (!termsAccepted) {
-      setError('Please accept the terms of use and privacy policy.');
+      const msg = 'Please accept the terms of use and privacy policy.';
+      setError(msg);
+      addToast(msg, 'error', 5000);
       return;
     }
     if (!siteId) {
-      setError('No site is selected for this contribution.');
+      const msg = 'No site is selected for this contribution.';
+      setError(msg);
+      addToast(msg, 'error', 5000);
       return;
     }
     if (!(contributor && contributor.status === 'approved')) {
-      setError('You must be signed in and approved before uploading.');
+      const msg = 'You must be signed in and approved before uploading.';
+      setError(msg);
+      addToast(msg, 'error', 5000);
       return;
     }
 
@@ -306,7 +358,9 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
 
     const validation = await checkPreUpload();
     if (!validation.allow_upload) {
-      setError(validation.message || 'Upload validation failed.');
+      const msg = validation.message || 'Upload validation failed.';
+      setError(msg);
+      addToast(msg, 'error', 5000);
       setIsUploadBusy(false);
       return;
     }
@@ -318,19 +372,28 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
       formData.append('sequential_order', sequentialOrder ? 'true' : 'false');
       formData.append('allow_full_resolution', allowFullResolution ? 'true' : 'false');
 
-      selectedFiles.forEach((file) => {
-        formData.append('images', file, file.name);
+      uploadableFiles.forEach((item) => {
+        formData.append('images', item.file, item.file.name);
       });
+
+      const csrfToken = getCsrfToken();
+      const headers = {};
+      if (csrfToken) {
+        headers['X-CSRFToken'] = csrfToken;
+      }
 
       const res = await fetch(`${API_BASE}/api/contributions/upload/`, {
         method: 'POST',
         credentials: 'include',
+        headers,
         body: formData,
       });
 
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setError(data?.message || 'Upload failed.');
+        const msg = data?.message || 'Upload failed.';
+        setError(msg);
+        addToast(msg, 'error');
         setIsUploadBusy(false);
         return;
       }
@@ -339,17 +402,31 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
         console.log('Upload response:', data);
       }
 
-      addToast('Upload completed successfully.', 'info');
-      handleClear();
-      onClose();
-    } catch (err) {
-      setError('Upload failed. Please try again.');
+      const uploadedCount = data?.batch?.total_images ?? (Array.isArray(data?.images) ? data.images.length : null);
+      if (typeof uploadedCount === 'number') {
+        addToast(`${uploadedCount} image${uploadedCount > 1 ? 's' : ''} uploaded successfully.`, 'success', 3000);
+      } else {
+        addToast('Upload completed successfully.', 'success', 3000);
+      }
+
+      if (invalidCount > 0) {
+        addToast(`Skipped ${invalidCount} invalid image${invalidCount > 1 ? 's' : ''}.`, 'warning', 4000);
+      }
+
+      setTimeout(() => {
+        handleClear();
+        onClose();
+      }, 3200);
+    } catch {
+      const msg = 'Upload failed. Please try again.';
+      setError(msg);
+      addToast(msg, 'error');
     } finally {
       setIsUploadBusy(false);
     }
   };
 
-  const submitDisabled = !fileCount || !termsAccepted || !siteId || !(contributor && contributor.status === 'approved') || isUploadBusy || isValidationBusy;
+  const submitDisabled = uploadableFiles.length === 0 || !termsAccepted || !siteId || !(contributor && contributor.status === 'approved') || isUploadBusy || isValidationBusy;
 
   if (!isOpen) return null;
 
@@ -365,6 +442,12 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
           {siteName && <p className="site-target-note">Selected site: {siteName}</p>}
           <div ref={googleButtonRef} style={{ display: 'inline-block' }} />
         </div>
+
+        {authMessage && (
+          <div className="auth-banner auth-info">
+            {authMessage}
+          </div>
+        )}
 
         {/* Auth status banner: shows waiting/approved/banned messages */}
         {contributor && contributor.status === 'waiting_approval' && (
@@ -390,7 +473,67 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
             allowOpen={Boolean(contributor && contributor.status === 'approved')}
             onAuthRequired={handleAuthRequired}
           />
-          <p className="upload-summary">{isValidationBusy ? 'Validating selected files...' : fileCount ? `${fileCount} file${fileCount > 1 ? 's' : ''} selected` : 'No files selected yet.'}</p>
+          <p className="upload-summary">
+            {isValidationBusy
+              ? 'Validating selected files...'
+              : totalSelected
+                ? `${totalSelected} file${totalSelected > 1 ? 's' : ''} selected`
+                : 'No files selected yet.'}
+          </p>
+
+          {totalSelected > 0 && (
+            <div className="upload-preview-section">
+              <div className="upload-preview-header">
+                <div>
+                  <strong>{totalSelected} selected</strong>
+                  <p className="preview-help-text">
+                    Invalid images will not be uploaded. You can remove them or continue with valid images.
+                  </p>
+                </div>
+                <button type="button" className="preview-clear-btn" onClick={handleClear}>
+                  Clear all
+                </button>
+              </div>
+
+              <div className="upload-preview-summary">
+                <span className="summary-pill valid">{readyCount} ready</span>
+                <span className="summary-pill warning">{warningCount} warning</span>
+                <span className="summary-pill invalid">{invalidCount} invalid</span>
+              </div>
+
+              <div className="preview-card-grid">
+                {selectedFiles.map((item) => (
+                  <div key={item.id} className={`preview-card ${item.validation?.severity || 'invalid'}`}>
+                    <button
+                      type="button"
+                      className="preview-remove-btn"
+                      onClick={() => handleRemoveFile(item.id)}
+                      aria-label={`Remove ${item.file.name}`}
+                    >
+                      <span className="material-icons">close</span>
+                    </button>
+                    <div className="preview-image-wrapper">
+                      <img src={item.previewUrl} alt={item.file.name} />
+                    </div>
+                    <div className="preview-card-body">
+                      <div className="preview-filename">{item.file.name}</div>
+                      <div className="preview-meta">{getFileSizeLabel(item.file.size)}</div>
+                      <span className={`status-badge ${item.validation?.severity || 'invalid'}`}>
+                        {item.validation?.severity === 'valid'
+                          ? 'Ready'
+                          : item.validation?.severity === 'warning'
+                            ? 'Low resolution'
+                            : 'Invalid'}
+                      </span>
+                      {item.validation?.severity !== 'valid' && (
+                        <p className="preview-reason">{item.validation?.reason}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="section upload-options collapsible-section">
@@ -498,7 +641,7 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
             onClick={handleUpload}
             disabled={submitDisabled}
           >
-            Upload
+            {uploadButtonLabel}
           </button>
         </div>
       </div>

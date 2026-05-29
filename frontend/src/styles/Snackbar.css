@@ -43,6 +43,12 @@
   border: 1px solid #fca5a5;
 }
 
+.snackbar-success {
+  background: linear-gradient(90deg, #e6ffef 0%, #dfffe8 100%);
+  border: 1px solid #7ee3b1;
+  color: #08321a;
+}
+
 .snackbar-close {
   border: none;
   background: transparent;

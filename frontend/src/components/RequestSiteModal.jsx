@@ -138,6 +138,11 @@ function RequestSiteModal({ isOpen, onClose, initialEmail = '', mapCoordinates =
     }));
   };
 
+  const getCsrfToken = () => {
+    const match = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+    return match ? match[2] : null;
+  };
+
   // Submit handler
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -167,9 +172,16 @@ function RequestSiteModal({ isOpen, onClose, initialEmail = '', mapCoordinates =
       formData.append('privacy_accepted', 'true');
       if (imageFile) formData.append('image', imageFile);
 
+      const headers = {};
+      const csrfToken = getCsrfToken();
+      if (csrfToken) {
+        headers['X-CSRFToken'] = csrfToken;
+      }
+
       console.log('Submitting to API:', getApiBaseUrl() + '/api/site-requests/submit/');
       const response = await fetch(getApiBaseUrl() + '/api/site-requests/submit/', {
         method: 'POST',
+        headers,
         body: formData,
         credentials: 'include',
       });
