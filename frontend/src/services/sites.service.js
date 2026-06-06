@@ -60,3 +60,37 @@ export async function fetchSites(signal) {
     throw new Error(`Failed to load sites: ${error.message}`);
   }
 }
+
+export async function fetchSiteStats(siteId, signal) {
+  const endpoint = `${getApiBaseUrl()}${SITES_API_PATH}${encodeURIComponent(siteId)}/stats/`;
+  logApiCall(endpoint, 'GET');
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+      signal,
+      mode: 'cors',
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const payload = await response.json();
+    if (!payload || typeof payload !== 'object') {
+      throw new Error('Unexpected API response format for site stats');
+    }
+
+    logApiCall(endpoint, 'GET', { success: true, siteId });
+    return payload;
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw error;
+    }
+    logApiCall(endpoint, 'GET', { error: error.message, siteId });
+    throw new Error(`Failed to load site stats: ${error.message}`);
+  }
+}

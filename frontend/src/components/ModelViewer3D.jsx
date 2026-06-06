@@ -59,7 +59,7 @@ function Model({ url, onLoadComplete, onError }) {
   const group = useRef();
 
   try {
-    // Use useGLTF hook - this is the modern React way
+    // Use useGLTF hook to load GLTF model
     const gltf = useGLTF(url);
     
     useEffect(() => {

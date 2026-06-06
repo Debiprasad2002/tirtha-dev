@@ -172,7 +172,7 @@ function AccordionItem({ title, content, isOpen = false, isCelebration = false }
               <CelebrationEffect isActive={showCelebration} />
             </>
           )}
-          {parseContent(content)}
+          {typeof content === 'string' ? parseContent(content) : content}
         </div>
       )}
     </div>

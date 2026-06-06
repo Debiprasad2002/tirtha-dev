@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
@@ -135,6 +136,40 @@ def site_list(request):
 		"description",
 	)
 	return JsonResponse(list(sites), safe=False)
+
+
+@require_GET
+def site_stats(request, site_id):
+	try:
+		site = Site.objects.get(pk=site_id)
+	except Site.DoesNotExist:
+		return JsonResponse({"status": "error", "message": "Site not found."}, status=404)
+
+	total_images = ContributionImage.objects.filter(site=site).count()
+	total_contributors = Contributor.objects.filter(contribution_batches__site=site).distinct().count()
+
+	top_contributors_qs = (
+		Contributor.objects.filter(contribution_batches__site=site)
+		.annotate(
+			uploads=Count(
+				"contribution_batches__images",
+				filter=Q(contribution_batches__site=site),
+			),
+		)
+		.filter(uploads__gt=0)
+		.order_by("-uploads", "name")[:3]
+	)
+
+	top_contributors = [
+		{"id": str(contributor.id), "name": contributor.name, "uploads": contributor.uploads}
+		for contributor in top_contributors_qs
+	]
+
+	return JsonResponse({
+		"total_images": total_images,
+		"total_contributors": total_contributors,
+		"top_contributors": top_contributors,
+	})
 
 
 @csrf_exempt
@@ -457,3 +492,32 @@ def upload_check(request):
 
 	response = JsonResponse({"allow_upload": True, "message": "Ready to upload images."}, status=200)
 	return _cors_headers(response, origin)
+
+
+@require_GET
+def platform_statistics(request):
+	"""Return global platform statistics: total sites, contributors, images, and top 5 contributors."""
+	total_sites = Site.objects.count()
+	total_contributors = Contributor.objects.filter(is_active=True).count()
+	total_images = ContributionImage.objects.count()
+
+	top_contributors_qs = (
+		Contributor.objects.filter(is_active=True)
+		.annotate(
+			uploads=Count("contribution_batches__images"),
+		)
+		.filter(uploads__gt=0)
+		.order_by("-uploads", "name")[:5]
+	)
+
+	top_contributors = [
+		{"id": str(contributor.id), "name": contributor.name, "uploads": contributor.uploads}
+		for contributor in top_contributors_qs
+	]
+
+	return JsonResponse({
+		"total_sites": total_sites,
+		"total_contributors": total_contributors,
+		"total_images": total_images,
+		"top_contributors": top_contributors,
+	})

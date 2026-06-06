@@ -23,6 +23,47 @@ class SiteApiTests(TestCase):
 		self.assertEqual(payload[0]['latitude'], 26.7956)
 		self.assertEqual(payload[0]['longitude'], 82.1947)
 
+	@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+	def test_site_stats_returns_contribution_summary(self):
+		site = Site.objects.create(name='Ram Mandir', latitude=26.7956, longitude=82.1947)
+		contributor1 = Contributor.objects.create(name='Debiprasad', email='debi@example.com', is_active=True, is_banned=False)
+		contributor2 = Contributor.objects.create(name='User 2', email='user2@example.com', is_active=True, is_banned=False)
+		contributor3 = Contributor.objects.create(name='User 3', email='user3@example.com', is_active=True, is_banned=False)
+
+		batch1 = ContributionBatch.objects.create(site=site, contributor=contributor1, total_images=2, status=ContributionBatch.Status.COMPLETED)
+		batch2 = ContributionBatch.objects.create(site=site, contributor=contributor2, total_images=1, status=ContributionBatch.Status.COMPLETED)
+		batch3 = ContributionBatch.objects.create(site=site, contributor=contributor3, total_images=3, status=ContributionBatch.Status.COMPLETED)
+
+		for idx in range(2):
+			ContributionImage.objects.create(
+				batch=batch1,
+				site=site,
+				image=SimpleUploadedFile(f'debi_{idx}.png', b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0cIDAT\x08\xd7c\xf8\xff\xff?\x00\x05\xfe\x02\xfeA\xb4\x1a\x9d\x00\x00\x00\x00IEND\xaeB`\x82', content_type='image/png'),
+			)
+		ContributionImage.objects.create(
+			batch=batch2,
+			site=site,
+			image=SimpleUploadedFile('user2.png', b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0cIDAT\x08\xd7c\xf8\xff\xff?\x00\x05\xfe\x02\xfeA\xb4\x1a\x9d\x00\x00\x00\x00IEND\xaeB`\x82', content_type='image/png'),
+		)
+		for idx in range(3):
+			ContributionImage.objects.create(
+				batch=batch3,
+				site=site,
+				image=SimpleUploadedFile(f'user3_{idx}.png', b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0cIDAT\x08\xd7c\xf8\xff\xff?\x00\x05\xfe\x02\xfeA\xb4\x1a\x9d\x00\x00\x00\x00IEND\xaeB`\x82', content_type='image/png'),
+			)
+
+		response = self.client.get(reverse('site-stats', args=[site.id]))
+
+		self.assertEqual(response.status_code, 200)
+		payload = response.json()
+		self.assertEqual(payload['total_images'], 6)
+		self.assertEqual(payload['total_contributors'], 3)
+		self.assertEqual(len(payload['top_contributors']), 3)
+		self.assertEqual(payload['top_contributors'][0]['name'], 'User 3')
+		self.assertEqual(payload['top_contributors'][0]['uploads'], 3)
+		self.assertEqual(payload['top_contributors'][1]['name'], 'Debiprasad')
+		self.assertEqual(payload['top_contributors'][2]['name'], 'User 2')
+
 
 class ContributorEmailSignalTests(TestCase):
 	@patch('sites.signals.send_contributor_approval_email')

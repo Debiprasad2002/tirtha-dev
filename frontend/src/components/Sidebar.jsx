@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../hooks/useTheme';
 import AccordionItem from './AccordionItem';
+import PlatformStatistics from './StatisticsCard';
 import '../styles/Sidebar.css';
 
 // Import footer icons
@@ -46,7 +47,7 @@ function Sidebar({ isVisible, onMobileClose }) {
   }, []);
 
   const visibleMenuItems = useMemo(
-    () => menuItems.filter((item) => item.title !== 'About Meditation Center'),
+    () => menuItems.filter((item) => !['About Meditation Center', 'Top Contributor'].includes(item.title)),
     [menuItems]
   );
 
@@ -118,6 +119,12 @@ function Sidebar({ isVisible, onMobileClose }) {
               />
             </div>
           ))}
+
+          <AccordionItem
+            title="Project Statistics & Contributors"
+            content={<PlatformStatistics />}
+            isOpen={false}
+          />
 
           <div className="sidebar-footer">
             <div className="footer-icons">

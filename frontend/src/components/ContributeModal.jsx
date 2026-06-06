@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import axios from 'axios';
 import FileUploadBox from './FileUploadBox';
 import Snackbar from './Snackbar';
 import { getApiBaseUrl } from '../utils/apiConfig';
@@ -18,6 +19,11 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
   const [toastItems, setToastItems] = useState([]);
   const [isUploadBusy, setIsUploadBusy] = useState(false);
   const [isValidationBusy, setIsValidationBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState('');
+  const [isGsiReady, setIsGsiReady] = useState(false);
+  const [previewFilter, setPreviewFilter] = useState('all');
+  const [selectedPreviewImage, setSelectedPreviewImage] = useState(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -60,7 +66,7 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
     fetchCurrent();
   }, [isOpen]);
 
-  // Initialize and render Google Identity Services button when modal opens
+  // Initialize Google Identity Services when modal opens
   useEffect(() => {
     if (!isOpen) return;
     initGsi();
@@ -141,20 +147,28 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
           client_id: clientId,
           callback: handleCredentialResponse,
         });
-        // If a container exists, render the official Google button there.
-        if (googleButtonRef?.current) {
-          try {
-            window.google.accounts.id.renderButton(googleButtonRef.current, {
-              theme: 'outline',
-              size: 'large',
-            });
-          } catch {
-            setAuthMessage('Unable to render Google sign-in button.');
-          }
-        }
+        setIsGsiReady(true);
       } catch {
         setAuthMessage('Unable to initialize Google sign-in.');
       }
+    } else {
+      setAuthMessage('Google Identity Services is unavailable in this browser.');
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      setAuthMessage('Missing Google client ID (VITE_GOOGLE_CLIENT_ID).');
+      return;
+    }
+
+    if (!isGsiReady) {
+      await initGsi();
+    }
+
+    if (window.google && window.google.accounts && window.google.accounts.id) {
+      window.google.accounts.id.prompt();
     } else {
       setAuthMessage('Google Identity Services is unavailable in this browser.');
     }
@@ -183,6 +197,10 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
   const handleClear = () => {
     revokePreviewUrls(selectedFiles);
     setSelectedFiles([]);
+    setPreviewFilter('all');
+    setSelectedPreviewImage(null);
+    setUploadProgress(0);
+    setUploadStatus('');
     setSequentialOrder(false);
     setAllowFullResolution(false);
     setShowUploadOptions(false);
@@ -190,6 +208,26 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
     setTermsAccepted(false);
     setError('');
   };
+
+  const handleModalClose = () => {
+    handleClear();
+    onClose();
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      revokePreviewUrls(selectedFiles);
+      setSelectedFiles([]);
+      setPreviewFilter('all');
+      setSelectedPreviewImage(null);
+      setSequentialOrder(false);
+      setAllowFullResolution(false);
+      setShowUploadOptions(false);
+      setShowChecklist(false);
+      setTermsAccepted(false);
+      setError('');
+    }
+  }, [isOpen, selectedFiles]);
 
   const handleRemoveFile = (fileId) => {
     setSelectedFiles((current) => {
@@ -320,8 +358,14 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
   const uploadButtonLabel = uploadableFiles.length > 0
     ? `Upload ${uploadableFiles.length} Image${uploadableFiles.length > 1 ? 's' : ''}`
     : 'Upload';
+  const filteredPreviewFiles = selectedFiles.filter((item) => {
+    if (previewFilter === 'all') return true;
+    if (previewFilter === 'ready') return item.validation?.severity === 'valid';
+    if (previewFilter === 'warning') return item.validation?.severity === 'warning';
+    if (previewFilter === 'invalid') return item.validation?.severity === 'invalid';
+    return true;
+  });
   const googleButtonRef = useRef(null);
-
   const getCsrfToken = () => {
     const match = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
     return match ? match[2] : null;
@@ -382,16 +426,26 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
         headers['X-CSRFToken'] = csrfToken;
       }
 
-      const res = await fetch(`${API_BASE}/api/contributions/upload/`, {
-        method: 'POST',
-        credentials: 'include',
+      const totalFiles = uploadableFiles.length;
+      setUploadProgress(0);
+      setUploadStatus(`Uploading 0/${totalFiles} images…`);
+
+      const response = await axios.post(`${API_BASE}/api/contributions/upload/`, formData, {
+        withCredentials: true,
         headers,
-        body: formData,
+        onUploadProgress: (progressEvent) => {
+          const { loaded, total } = progressEvent;
+          const percent = total ? Math.round((loaded / total) * 100) : 0;
+          const currentFile = total && totalFiles ? Math.min(totalFiles, Math.max(1, Math.ceil((loaded / total) * totalFiles))) : 0;
+          setUploadProgress(percent);
+          setUploadStatus(`Uploading ${currentFile}/${totalFiles} images…`);
+        },
       });
 
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
+      const data = response.data;
+      if (response.status < 200 || response.status >= 300) {
         const msg = data?.message || 'Upload failed.';
+        setUploadStatus('Upload failed');
         setError(msg);
         addToast(msg, 'error');
         setIsUploadBusy(false);
@@ -402,12 +456,16 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
         console.log('Upload response:', data);
       }
 
-      const uploadedCount = data?.batch?.total_images ?? (Array.isArray(data?.images) ? data.images.length : null);
-      if (typeof uploadedCount === 'number') {
-        addToast(`${uploadedCount} image${uploadedCount > 1 ? 's' : ''} uploaded successfully.`, 'success', 3000);
-      } else {
-        addToast('Upload completed successfully.', 'success', 3000);
-      }
+      const uploadedCount = data?.batch?.total_images ?? (Array.isArray(data?.images) ? data.images.length : uploadableFiles.length);
+      const successCount = Number.isFinite(uploadedCount) ? uploadedCount : uploadableFiles.length;
+      const successMessage = `${successCount} image${successCount !== 1 ? 's' : ''} uploaded successfully.`;
+      const successStatus = invalidCount > 0
+        ? `${successMessage} (${invalidCount} invalid skipped)`
+        : successMessage;
+
+      setUploadProgress(100);
+      setUploadStatus(successStatus);
+      addToast(successMessage, 'success', 3000);
 
       if (invalidCount > 0) {
         addToast(`Skipped ${invalidCount} invalid image${invalidCount > 1 ? 's' : ''}.`, 'warning', 4000);
@@ -417,8 +475,11 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
         handleClear();
         onClose();
       }, 3200);
-    } catch {
-      const msg = 'Upload failed. Please try again.';
+    } catch (uploadError) {
+      console.error(uploadError);
+      const msg = uploadError?.response?.data?.message || 'Upload failed. Please try again.';
+      setUploadProgress(0);
+      setUploadStatus('Upload failed');
       setError(msg);
       addToast(msg, 'error');
     } finally {
@@ -431,17 +492,56 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
   if (!isOpen) return null;
 
   return (
-    <div className="contribute-modal-overlay" onClick={onClose}>
+    <div className="contribute-modal-overlay" onClick={handleModalClose}>
       <div className="contribute-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-close-button" onClick={onClose} aria-label="Close modal">
+        <button className="modal-close-button" onClick={handleModalClose} aria-label="Close modal">
           <span className="material-icons">close</span>
         </button>
 
         <div className="contribute-header">
           <h2>Contribute to {contributionTarget}</h2>
           {siteName && <p className="site-target-note">Selected site: {siteName}</p>}
-          <div ref={googleButtonRef} style={{ display: 'inline-block' }} />
+          <button
+            type="button"
+            className="google-signin-btn"
+            ref={googleButtonRef}
+            onClick={handleGoogleSignIn}
+          >
+            <span className="google-signin-icon" aria-hidden="true">
+              <svg viewBox="0 0 533.5 544.3" xmlns="http://www.w3.org/2000/svg" focusable="false">
+                <path fill="#4285F4" d="M533.5 278.4c0-17.5-1.4-34.4-4.1-50.7H272v95.8h146.9c-6.3 34.2-25 63.2-53.6 82.7v68.8h86.6c50.8-46.8 80.6-115.8 80.6-196.6z"/>
+                <path fill="#34A853" d="M272 544.3c72.6 0 133.6-24.2 178.2-65.8l-86.6-68.8c-24.1 16.2-55 25.7-91.6 25.7-70.4 0-130-47.5-151.3-111.4H32.8v69.8C77.8 488.3 167.3 544.3 272 544.3z"/>
+                <path fill="#FBBC05" d="M120.7 325.1c-10.6-31.1-10.6-64.3 0-95.4V159.9H32.8c-39.9 79.8-39.9 175.1 0 254.9l87.9-69.7z"/>
+                <path fill="#EA4335" d="M272 107.7c38.6 0 73.4 13.3 100.8 39.4l75.6-75.6C405.6 24.6 344.6 0 272 0 167.3 0 77.8 56 32.8 159.9l87.9 69.8C142 155.2 201.6 107.7 272 107.7z"/>
+              </svg>
+            </span>
+            Sign in with Google
+          </button>
         </div>
+
+        {selectedPreviewImage && (
+          <div className="image-lightbox-overlay" onClick={() => setSelectedPreviewImage(null)}>
+            <div className="image-lightbox-content" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                className="lightbox-close-btn"
+                onClick={() => setSelectedPreviewImage(null)}
+                aria-label="Close preview"
+              >
+                <span className="material-icons">close</span>
+              </button>
+              <img
+                className="lightbox-img"
+                src={selectedPreviewImage.previewUrl}
+                alt={selectedPreviewImage.file.name}
+              />
+              <div className="lightbox-caption">
+                <strong>{selectedPreviewImage.file.name}</strong>
+                <span>{getFileSizeLabel(selectedPreviewImage.file.size)}</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {authMessage && (
           <div className="auth-banner auth-info">
@@ -487,12 +587,30 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
                 <div>
                   <strong>{totalSelected} selected</strong>
                   <p className="preview-help-text">
-                    Invalid images will not be uploaded. You can remove them or continue with valid images.
+                    {readyCount} valid image{readyCount !== 1 ? 's' : ''} ready for upload. {invalidCount} invalid image{invalidCount !== 1 ? 's' : ''} will be skipped.
                   </p>
                 </div>
                 <button type="button" className="preview-clear-btn" onClick={handleClear}>
                   Clear all
                 </button>
+              </div>
+
+              <div className="preview-tab-row">
+                {[
+                  { id: 'all', label: 'All' },
+                  { id: 'ready', label: 'Ready' },
+                  { id: 'warning', label: 'Warning' },
+                  { id: 'invalid', label: 'Invalid' },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    className={`preview-tab ${previewFilter === tab.id ? 'active' : ''}`}
+                    onClick={() => setPreviewFilter(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
               <div className="upload-preview-summary">
@@ -501,13 +619,32 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
                 <span className="summary-pill invalid">{invalidCount} invalid</span>
               </div>
 
-              <div className="preview-card-grid">
-                {selectedFiles.map((item) => (
-                  <div key={item.id} className={`preview-card ${item.validation?.severity || 'invalid'}`}>
+              {uploadStatus && (
+                <div className="upload-progress-wrapper">
+                  <div className="upload-progress-top">
+                    <span className="upload-progress-text">{uploadStatus}</span>
+                    <span className="upload-progress-percent">{uploadProgress}%</span>
+                  </div>
+                  <div className="upload-progress-track">
+                    <div className="upload-progress-fill" style={{ width: `${uploadProgress}%` }} />
+                  </div>
+                </div>
+              )}
+
+              <div className="preview-card-row">
+                {filteredPreviewFiles.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`preview-card ${item.validation?.severity || 'invalid'}`}
+                    onClick={() => setSelectedPreviewImage(item)}
+                  >
                     <button
                       type="button"
                       className="preview-remove-btn"
-                      onClick={() => handleRemoveFile(item.id)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleRemoveFile(item.id);
+                      }}
                       aria-label={`Remove ${item.file.name}`}
                     >
                       <span className="material-icons">close</span>

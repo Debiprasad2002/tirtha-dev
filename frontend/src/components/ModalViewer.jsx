@@ -1,5 +1,6 @@
 import React, { useEffect, lazy, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { fetchSiteStats } from '../services/sites.service';
 import '../styles/ModalViewer.css';
 
 const ModelViewer3D = lazy(() => import('./ModelViewer3D'));
@@ -17,6 +18,13 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
     coordinates: true,
     contributors: true,
   });
+  const [siteStats, setSiteStats] = useState({
+    total_images: 0,
+    total_contributors: 0,
+    top_contributors: [],
+  });
+  const [isStatsLoading, setIsStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState('');
 
   const modelPath = temple?.modelPath || '/models/ram-mandir.glb';
 
@@ -42,6 +50,7 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
   const detailsPreview = hasExpandableDetails
     ? `${detailsText.slice(0, DETAILS_PREVIEW_LENGTH).trimEnd()}...`
     : detailsText;
+  const rankIcons = ['🥇', '🥈', '🥉'];
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -51,7 +60,9 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
       setIsMobile(event.matches);
     };
 
+    /* eslint-disable react-hooks/set-state-in-effect */
     setIsMobile(mediaQuery.matches);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     if (mediaQuery.addEventListener) {
       mediaQuery.addEventListener('change', handleViewportChange);
@@ -63,6 +74,7 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
   }, []);
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (!isOpen) {
       setIsDetailsExpanded(false);
       setOpenSections({
@@ -92,7 +104,52 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
       contributors: true,
     });
     setIsDetailsExpanded(false);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [isOpen, isMobile]);
+
+  useEffect(() => {
+    if (!isOpen || !temple?.id) {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    let active = true;
+
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setIsStatsLoading(true);
+    setStatsError('');
+    /* eslint-enable react-hooks/set-state-in-effect */
+
+    fetchSiteStats(temple.id, controller.signal)
+      .then((data) => {
+        if (!active) return;
+        setSiteStats({
+          total_images: Number(data.total_images) || 0,
+          total_contributors: Number(data.total_contributors) || 0,
+          top_contributors: Array.isArray(data.top_contributors) ? data.top_contributors : [],
+        });
+      })
+      .catch((error) => {
+        if (!active) return;
+        setSiteStats({
+          total_images: 0,
+          total_contributors: 0,
+          top_contributors: [],
+        });
+        setStatsError('Contribution stats unavailable.');
+        if (import.meta.env.DEV) {
+          console.error('Failed to load site stats:', error);
+        }
+      })
+      .finally(() => {
+        if (active) setIsStatsLoading(false);
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [isOpen, temple?.id]);
 
   const toggleSection = (sectionKey) => {
     setOpenSections((prev) => ({
@@ -206,26 +263,38 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
 
                   {renderSection(
                     'contributors',
-                    'Top Contributors',
-                    <div className="top-contributor-section">
-                      <ul className="top-contributors-list">
-                        <li>
-                          <span className="rank">1</span>
-                          <span className="contributor-name">User 1</span>
-                          <span className="contributor-meta">🏆</span>
-                        </li>
-                        <li>
-                          <span className="rank">2</span>
-                          <span className="contributor-name">User 2</span>
-                          <span className="contributor-meta">⭐</span>
-                        </li>
-                        <li>
-                          <span className="rank">3</span>
-                          <span className="contributor-name">User 3</span>
-                          <span className="contributor-meta">✨</span>
-                        </li>
-                      </ul>
-                      <small>Ranking is placeholder; backend will provide final data</small>
+                    'Contribution Stats',
+                    <div className="contribution-stats-section">
+                      <div className="stats-grid">
+                        <div className="stats-card">
+                          <span className="stats-label">📸 Total Images</span>
+                          <strong className="stats-value">{siteStats.total_images}</strong>
+                        </div>
+                        <div className="stats-card">
+                          <span className="stats-label">👤 Total Contributors</span>
+                          <strong className="stats-value">{siteStats.total_contributors}</strong>
+                        </div>
+                      </div>
+
+                      {isStatsLoading ? (
+                        <p className="stats-loading">Loading contribution stats…</p>
+                      ) : statsError ? (
+                        <p className="stats-error">{statsError}</p>
+                      ) : siteStats.top_contributors.length > 0 ? (
+                        <div className="top-contributor-section">
+                          <ul className="top-contributors-list">
+                            {siteStats.top_contributors.map((contributor, index) => (
+                              <li key={contributor.id}>
+                                <span className="rank-icon">{rankIcons[index] || `#${index + 1}`}</span>
+                                <span className="contributor-name">{contributor.name}</span>
+                                <span className="contributor-meta">{contributor.uploads} uploads</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : (
+                        <p className="no-contributions">No contributions yet.</p>
+                      )}
                     </div>
                   )}
                 </div>
