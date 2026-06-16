@@ -11,7 +11,7 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from .models import Site, Contributor, ContributionBatch, ContributionImage, SiteSubmissionRequest
+from .models import Mesh, Contributor, Contribution, Image, SiteSubmissionRequest
 
 
 def _allowed_origin(origin):
@@ -115,9 +115,9 @@ def _get_current_contributor(request):
 		request.session.pop("contributor_email", None)
 		return None, JsonResponse({"allow_upload": False, "message": "Authentication required."}, status=401)
 
-	if contributor.is_banned:
+	if contributor.banned:
 		return None, JsonResponse({"allow_upload": False, "message": "Account banned. Contact admin.",}, status=403)
-	if not contributor.is_active:
+	if not contributor.active:
 		return None, JsonResponse({"allow_upload": False, "message": "Contributor approval required.", "approval_required": True}, status=403)
 
 	return contributor, None
@@ -125,35 +125,45 @@ def _get_current_contributor(request):
 
 @require_GET
 def site_list(request):
-	# Include any additional fields recently added to the Site model
-	# so the frontend can consume them directly (e.g., details, description)
-	sites = Site.objects.all().values(
-		"id",
+	# Return Mesh objects with location and basic info
+	meshes = Mesh.objects.all().values(
+		"ID",
 		"name",
-		"latitude",
-		"longitude",
-		"details",
 		"description",
+		"country",
+		"state",
+		"district",
 	)
-	return JsonResponse(list(sites), safe=False)
+	# Transform to maintain API compatibility (ID -> id)
+	result = []
+	for mesh in meshes:
+		result.append({
+			"id": mesh["ID"],
+			"name": mesh["name"],
+			"description": mesh["description"],
+			"country": mesh["country"],
+			"state": mesh["state"],
+			"district": mesh["district"],
+		})
+	return JsonResponse(result, safe=False)
 
 
 @require_GET
 def site_stats(request, site_id):
 	try:
-		site = Site.objects.get(pk=site_id)
-	except Site.DoesNotExist:
-		return JsonResponse({"status": "error", "message": "Site not found."}, status=404)
+		mesh = Mesh.objects.get(pk=site_id)
+	except Mesh.DoesNotExist:
+		return JsonResponse({"status": "error", "message": "Mesh not found."}, status=404)
 
-	total_images = ContributionImage.objects.filter(site=site).count()
-	total_contributors = Contributor.objects.filter(contribution_batches__site=site).distinct().count()
+	total_images = Image.objects.filter(contribution__mesh=mesh).count()
+	total_contributors = Contributor.objects.filter(contributions__mesh=mesh).distinct().count()
 
 	top_contributors_qs = (
-		Contributor.objects.filter(contribution_batches__site=site)
+		Contributor.objects.filter(contributions__mesh=mesh)
 		.annotate(
 			uploads=Count(
-				"contribution_batches__images",
-				filter=Q(contribution_batches__site=site),
+				"contributions__images",
+				filter=Q(contributions__mesh=mesh),
 			),
 		)
 		.filter(uploads__gt=0)
@@ -161,7 +171,7 @@ def site_stats(request, site_id):
 	)
 
 	top_contributors = [
-		{"id": str(contributor.id), "name": contributor.name, "uploads": contributor.uploads}
+		{"id": str(contributor.ID), "name": contributor.name, "uploads": contributor.uploads}
 		for contributor in top_contributors_qs
 	]
 
@@ -225,21 +235,14 @@ def google_login(request):
 		email=email,
 		defaults={
 			"name": name,
-			"profile_picture": picture,
-			"is_active": False,
-			"is_banned": False,
+			"active": False,
+			"banned": False,
 		},
 	)
 
-	# Update name/picture if changed
-	updated = False
+	# Update name if changed
 	if name and contributor.name != name:
 		contributor.name = name
-		updated = True
-	if picture and contributor.profile_picture != picture:
-		contributor.profile_picture = picture
-		updated = True
-	if updated:
 		contributor.save()
 
 	# Save minimal contributor info in session for later requests
@@ -248,10 +251,10 @@ def google_login(request):
 	request.session.set_expiry(0)
 
 	# Prepare response status
-	if contributor.is_banned:
+	if contributor.banned:
 		status = "banned"
 		message = "Account banned. Contact admin."
-	elif not contributor.is_active:
+	elif not contributor.active:
 		status = "waiting_approval"
 		message = "Signed in — waiting for admin approval."
 	else:
@@ -263,12 +266,11 @@ def google_login(request):
 			"status": status,
 			"message": message,
 			"contributor": {
-				"id": str(contributor.id),
+				"id": str(contributor.ID),
 				"name": contributor.name,
 				"email": contributor.email,
-				"profile_picture": contributor.profile_picture,
-				"is_active": contributor.is_active,
-				"is_banned": contributor.is_banned,
+				"active": contributor.active,
+				"banned": contributor.banned,
 			},
 		}
 	)
@@ -406,8 +408,8 @@ def upload_contributions(request):
 		return _cors_headers(_json_error("site_id is required."), origin)
 
 	try:
-		site = Site.objects.get(pk=site_id)
-	except (Site.DoesNotExist, ValueError, TypeError):
+		mesh = Mesh.objects.get(pk=site_id)
+	except (Mesh.DoesNotExist, ValueError, TypeError):
 		return _cors_headers(_json_error("Invalid site_id.", status=404), origin)
 
 	uploaded_files = _get_request_files(request)
@@ -422,26 +424,23 @@ def upload_contributions(request):
 
 	try:
 		with transaction.atomic():
-			batch = ContributionBatch.objects.create(
-				site=site,
+			contribution = Contribution.objects.create(
+				mesh=mesh,
 				contributor=contributor,
-				total_images=len(uploaded_files),
-				status=ContributionBatch.Status.PROCESSING,
+				processed=False,
 			)
 
 			created_images = []
 			for uploaded_file in uploaded_files:
 				created_images.append(
-					ContributionImage.objects.create(
-						batch=batch,
-						site=site,
+					Image.objects.create(
+						contribution=contribution,
 						image=uploaded_file,
 					)
 				)
 
-			batch.status = ContributionBatch.Status.COMPLETED
-			batch.total_images = len(created_images)
-			batch.save(update_fields=["status", "total_images"])
+			contribution.processed = True
+			contribution.save(update_fields=["processed"])
 	except Exception:
 		return _cors_headers(_json_error("Unable to store uploaded images.", status=500), origin)
 
@@ -450,18 +449,18 @@ def upload_contributions(request):
 			"status": "success",
 			"message": "Images uploaded successfully.",
 			"batch": {
-				"id": batch.id,
-				"site_id": batch.site_id,
-				"contributor_id": str(batch.contributor_id),
-				"total_images": batch.total_images,
-				"status": batch.status,
+				"id": str(contribution.ID),
+				"site_id": str(contribution.mesh_id),
+				"contributor_id": str(contribution.contributor_id),
+				"total_images": len(created_images),
+				"status": "completed",
 			},
 			"images": [
 				{
-					"id": image.id,
-					"site_id": image.site_id,
+					"id": str(image.ID),
+					"site_id": str(image.contribution.mesh_id),
 					"image": image.image.name,
-					"uploaded_at": image.uploaded_at.isoformat(),
+					"uploaded_at": image.created_at.isoformat(),
 				}
 				for image in created_images
 			],
@@ -486,8 +485,8 @@ def upload_check(request):
 		return _cors_headers(_json_error("site_id is required."), origin)
 
 	try:
-		site = Site.objects.get(pk=site_id)
-	except (Site.DoesNotExist, ValueError, TypeError):
+		mesh = Mesh.objects.get(pk=site_id)
+	except (Mesh.DoesNotExist, ValueError, TypeError):
 		return _cors_headers(_json_error("Invalid site_id.", status=404), origin)
 
 	response = JsonResponse({"allow_upload": True, "message": "Ready to upload images."}, status=200)
@@ -497,21 +496,21 @@ def upload_check(request):
 @require_GET
 def platform_statistics(request):
 	"""Return global platform statistics: total sites, contributors, images, and top 5 contributors."""
-	total_sites = Site.objects.count()
-	total_contributors = Contributor.objects.filter(is_active=True).count()
-	total_images = ContributionImage.objects.count()
+	total_sites = Mesh.objects.count()
+	total_contributors = Contributor.objects.filter(active=True).count()
+	total_images = Image.objects.count()
 
 	top_contributors_qs = (
-		Contributor.objects.filter(is_active=True)
+		Contributor.objects.filter(active=True)
 		.annotate(
-			uploads=Count("contribution_batches__images"),
+			uploads=Count("contributions__images"),
 		)
 		.filter(uploads__gt=0)
 		.order_by("-uploads", "name")[:5]
 	)
 
 	top_contributors = [
-		{"id": str(contributor.id), "name": contributor.name, "uploads": contributor.uploads}
+		{"id": str(contributor.ID), "name": contributor.name, "uploads": contributor.uploads}
 		for contributor in top_contributors_qs
 	]
 

@@ -1,136 +1,147 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Site, Contributor, ContributionBatch, ContributionImage
-from .models import SiteSubmissionRequest
+from .models import Mesh, Contributor, Contribution, Image, SiteSubmissionRequest
 
 
-@admin.action(description="Approve selected contributors")
-def approve_contributors(modeladmin, request, queryset):
-	# Save each contributor individually so model signals can detect the
-	# pending -> approved transition and send the approval email once.
-	for contributor in queryset:
-		contributor.is_active = True
-		contributor.is_banned = False
-		contributor.save(update_fields=["is_active", "is_banned"])
+@admin.action(description="Activate selected contributors")
+def activate_contributors(modeladmin, request, queryset):
+    """Set active=True for selected contributors."""
+    for contributor in queryset:
+        contributor.active = True
+        contributor.banned = False
+        contributor.save()
 
 
 @admin.action(description="Ban selected contributors")
 def ban_contributors(modeladmin, request, queryset):
-	# Save each contributor individually so model signals can detect the
-	# pending -> banned transition and send the rejection email once.
-	for contributor in queryset:
-		contributor.is_banned = True
-		contributor.is_active = False
-		contributor.save(update_fields=["is_banned", "is_active"])
+    """Set banned=True for selected contributors."""
+    for contributor in queryset:
+        contributor.banned = True
+        contributor.active = False
+        contributor.save()
 
 
 @admin.action(description="Deactivate selected contributors")
 def deactivate_contributors(modeladmin, request, queryset):
-	# Deactivate contributors (set to pending). Do not mark as banned.
-	# We save individually so signals capture the previous state; no email
-	# will be sent because this transition is into the pending state.
-	for contributor in queryset:
-		contributor.is_active = False
-		contributor.is_banned = False
-		contributor.save(update_fields=["is_active", "is_banned"])
+    """Set active=False for selected contributors."""
+    for contributor in queryset:
+        contributor.active = False
+        contributor.banned = False
+        contributor.save()
 
 
+@admin.register(Contributor)
 class ContributorAdmin(admin.ModelAdmin):
-	list_display = ("contributor_id", "name", "email", "is_active", "is_banned", "total_uploads", "created_at")
-	list_filter = ("is_active", "is_banned")
-	search_fields = ("name", "email")
-	actions = [approve_contributors, ban_contributors, deactivate_contributors]
-	readonly_fields = ("contributor_id", "total_uploads")
+    list_display = ("ID", "name", "email", "active", "banned", "created_at", "updated_at")
+    list_filter = ("active", "banned", "created_at")
+    search_fields = ("name", "email")
+    actions = [activate_contributors, ban_contributors, deactivate_contributors]
+    readonly_fields = ("ID", "created_at", "updated_at")
+    fieldsets = (
+        (None, {"fields": ("ID", "name", "email")}),
+        ("Status", {"fields": ("active", "banned", "ban_reason")}),
+        ("Timestamps", {"fields": ("created_at", "updated_at")}),
+    )
 
 
-class ContributionImageInline(admin.TabularInline):
-	model = ContributionImage
-	extra = 0
-	readonly_fields = ("site", "image", "uploaded_at")
-	can_delete = False
-	show_change_link = True
+class ImageInline(admin.TabularInline):
+    model = Image
+    extra = 0
+    readonly_fields = ("ID", "created_at", "image")
+    can_delete = True
+    show_change_link = True
+    fields = ("ID", "image", "label", "remark", "created_at")
 
 
-@admin.register(ContributionBatch)
-class ContributionBatchAdmin(admin.ModelAdmin):
-	list_display = ("batch_id", "contributor", "site", "status", "total_images", "created_at")
-	list_filter = ("status", "site", "created_at")
-	search_fields = ("contributor__name", "contributor__email", "site__name")
-	readonly_fields = ("created_at",)
-	inlines = [ContributionImageInline]
+@admin.register(Contribution)
+class ContributionAdmin(admin.ModelAdmin):
+    list_display = ("ID", "mesh", "contributor", "contributed_at", "processed", "processed_at")
+    list_filter = ("processed", "contributed_at", "mesh")
+    search_fields = ("ID", "mesh__name", "contributor__name", "contributor__email")
+    readonly_fields = ("ID", "contributed_at")
+    inlines = [ImageInline]
+    fieldsets = (
+        (None, {"fields": ("ID", "mesh", "contributor")}),
+        ("Processing", {"fields": ("processed", "processed_at")}),
+        ("Timestamp", {"fields": ("contributed_at",)}),
+    )
 
 
-@admin.register(ContributionImage)
-class ContributionImageAdmin(admin.ModelAdmin):
-	list_display = ("image_id", "batch_id", "site_id", "thumbnail", "uploaded_at")
-	list_filter = ("site", "uploaded_at")
-	search_fields = ("batch__batch_id", "site__name", "batch__contributor__email")
-	readonly_fields = ("uploaded_at", "image_id")
+@admin.register(Image)
+class ImageAdmin(admin.ModelAdmin):
+    list_display = ("ID", "contribution", "label", "created_at")
+    list_filter = ("label", "created_at", "contribution__mesh")
+    search_fields = ("ID", "contribution__mesh__name", "contribution__contributor__email", "label")
+    readonly_fields = ("ID", "created_at", "image_preview")
+    fieldsets = (
+        (None, {"fields": ("ID", "contribution")}),
+        ("Image", {"fields": ("image", "image_preview")}),
+        ("Metadata", {"fields": ("label", "remark")}),
+        ("Timestamp", {"fields": ("created_at",)}),
+    )
 
-	def batch_id(self, obj):
-		return getattr(obj.batch, "batch_id", obj.batch.pk)
-
-	batch_id.short_description = "batch_id"
-
-	def site_id(self, obj):
-		return getattr(obj.site, "site_id", obj.site.pk)
-
-	site_id.short_description = "site_id"
-
-	def thumbnail(self, obj):
-		try:
-			if obj.image:
-				return f"{obj.image.name.split('/')[-1]}"
-		except Exception:
-			return ""
-
-	thumbnail.short_description = "image"
+    def image_preview(self, obj):
+        if not obj.image:
+            return "-"
+        return format_html(
+            '<img src="{}" style="max-height:200px;max-width:300px;border-radius:8px;object-fit:cover;" />',
+            obj.image.url
+        )
+    image_preview.short_description = "Image Preview"
 
 
-@admin.register(Site)
-class SiteAdmin(admin.ModelAdmin):
-	list_display = ("site_id", "name", "latitude", "longitude", "state", "country", "total_images")
-	search_fields = ("name", "site_id")
-	readonly_fields = ("site_id", "created_at", "updated_at")
-	fieldsets = (
-		(None, {"fields": ("name", "latitude", "longitude")} ),
-		("Details", {"fields": ("description", "details")} ),
-		("Location", {"fields": ("state", "country")} ),
-		("Stats", {"fields": ("total_images",)}),
-	)
+@admin.register(Mesh)
+class MeshAdmin(admin.ModelAdmin):
+    list_display = ("ID", "name", "country", "state", "district", "status", "completed", "hidden", "created_at")
+    list_filter = ("status", "completed", "hidden", "country", "state", "district", "created_at")
+    search_fields = ("ID", "name", "verbose_id", "country", "state", "district")
+    readonly_fields = ("ID", "verbose_id", "created_at", "updated_at", "reconstructed_at")
+    fieldsets = (
+        (None, {"fields": ("ID", "name", "description")}),
+        ("Location", {"fields": ("country", "state", "district")}),
+        ("Images", {"fields": ("preview", "thumbnail")}),
+        ("Reconstruction Settings", {
+            "fields": (
+                "verbose_id", "status", "completed", "hidden", "center_image",
+                "rotaX", "rotaY", "rotaZ", "orientMesh", "minObsAng", "denoise"
+            ),
+            "classes": ("collapse",),
+        }),
+        ("Timestamps", {"fields": ("created_at", "updated_at", "reconstructed_at")}),
+    )
 
 
 @admin.action(description="Approve selected site requests")
 def approve_site_requests(modeladmin, request, queryset):
-	queryset.update(status=SiteSubmissionRequest.Status.APPROVED)
+    queryset.update(status=SiteSubmissionRequest.Status.APPROVED)
 
 
 @admin.action(description="Reject selected site requests")
 def reject_site_requests(modeladmin, request, queryset):
-	queryset.update(status=SiteSubmissionRequest.Status.REJECTED)
+    queryset.update(status=SiteSubmissionRequest.Status.REJECTED)
 
 
 @admin.register(SiteSubmissionRequest)
 class SiteSubmissionRequestAdmin(admin.ModelAdmin):
-	list_display = ("request_id", "site_name", "name", "email", "status", "created_at", "image_preview")
-	list_filter = ("status", "state", "country", "created_at")
-	search_fields = ("request_id", "site_name", "name", "email", "google_maps_url")
-	readonly_fields = ("request_id", "created_at", "image_preview")
-	actions = [approve_site_requests, reject_site_requests]
+    list_display = ("request_id", "site_name", "name", "email", "status", "created_at", "image_preview")
+    list_filter = ("status", "state", "country", "created_at")
+    search_fields = ("request_id", "site_name", "name", "email", "google_maps_url")
+    readonly_fields = ("request_id", "created_at", "image_preview")
+    actions = [approve_site_requests, reject_site_requests]
+    fieldsets = (
+        (None, {"fields": ("request_id", "status", "created_at")}),
+        ("User Details", {"fields": ("name", "email")}),
+        ("Site Details", {"fields": ("site_name", "state", "country", "google_maps_url", "description")}),
+        ("Location", {"fields": ("latitude", "longitude")}),
+        ("Upload", {"fields": ("image", "image_preview")}),
+    )
 
-	fieldsets = (
-		(None, {"fields": ("request_id", "status", "created_at")} ),
-		("User Details", {"fields": ("name", "email")} ),
-		("Site Details", {"fields": ("site_name", "state", "country", "google_maps_url", "description")} ),
-		("Location", {"fields": ("latitude", "longitude")} ),
-		("Upload", {"fields": ("image", "image_preview")} ),
-	)
-
-	def image_preview(self, obj):
-		if not obj.image:
-			return "-"
-		return format_html('<a href="{}" target="_blank"><img src="{}" style="max-height:120px;max-width:180px;border-radius:8px;object-fit:cover;" /></a>', obj.image.url, obj.image.url)
-
-	image_preview.short_description = "Uploaded image"
-
-admin.site.register(Contributor, ContributorAdmin)
+    def image_preview(self, obj):
+        if not obj.image:
+            return "-"
+        return format_html(
+            '<a href="{}" target="_blank"><img src="{}" style="max-height:120px;max-width:180px;border-radius:8px;object-fit:cover;" /></a>',
+            obj.image.url,
+            obj.image.url
+        )
+    image_preview.short_description = "Uploaded image"

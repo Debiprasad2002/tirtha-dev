@@ -13,7 +13,7 @@ from .views import (
 
 urlpatterns = [
     path("sites/", site_list, name="site-list"),
-    path("sites/<int:site_id>/stats/", site_stats, name="site-stats"),
+    path("sites/<str:site_id>/stats/", site_stats, name="site-stats"),
     path("platform/statistics/", platform_statistics, name="platform-statistics"),
     path("auth/google-login/", google_login, name="google-login"),
     path("auth/current-contributor/", current_contributor, name="current-contributor"),

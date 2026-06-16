@@ -1,4 +1,5 @@
 import tempfile
+import io
 
 from unittest.mock import patch
 
@@ -6,53 +7,74 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.test import override_settings
 from django.urls import reverse
+from PIL import Image as PILImage
 
-from .models import Site, Contributor, ContributionBatch, ContributionImage
+from .models import Mesh, Contributor, Contribution, Image
 
 
 class SiteApiTests(TestCase):
+	def _make_image(self, name='test.png'):
+		"""Create a valid test PNG image (1x1 pixel, red)."""
+		# Create a real 1x1 PNG image using PIL
+		img = PILImage.new('RGB', (1, 1), color='red')
+		img_bytes = io.BytesIO()
+		img.save(img_bytes, format='PNG')
+		img_bytes.seek(0)
+		return SimpleUploadedFile(name, img_bytes.read(), content_type='image/png')
+
+	@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
 	def test_site_list_returns_sites(self):
-		Site.objects.create(name='Ram Mandir', latitude=26.7956, longitude=82.1947)
+		mesh = Mesh.objects.create(
+			name='Ram Mandir 1',
+			country='India',
+			state='Uttar Pradesh',
+			district='Mathura',
+			preview=self._make_image('ram_prev.png'),
+			thumbnail=self._make_image('ram_thumb.png'),
+		)
 
 		response = self.client.get(reverse('site-list'))
 
 		self.assertEqual(response.status_code, 200)
 		payload = response.json()
 		self.assertEqual(len(payload), 1)
-		self.assertEqual(payload[0]['name'], 'Ram Mandir')
-		self.assertEqual(payload[0]['latitude'], 26.7956)
-		self.assertEqual(payload[0]['longitude'], 82.1947)
+		self.assertEqual(payload[0]['name'], 'Ram Mandir 1')
 
 	@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
 	def test_site_stats_returns_contribution_summary(self):
-		site = Site.objects.create(name='Ram Mandir', latitude=26.7956, longitude=82.1947)
-		contributor1 = Contributor.objects.create(name='Debiprasad', email='debi@example.com', is_active=True, is_banned=False)
-		contributor2 = Contributor.objects.create(name='User 2', email='user2@example.com', is_active=True, is_banned=False)
-		contributor3 = Contributor.objects.create(name='User 3', email='user3@example.com', is_active=True, is_banned=False)
+		mesh = Mesh.objects.create(
+			name='Ram Mandir 2',
+			country='India',
+			state='Uttar Pradesh',
+			district='Mathura',
+			preview=self._make_image('ram_prev.png'),
+			thumbnail=self._make_image('ram_thumb.png'),
+		)
+		contributor1 = Contributor.objects.create(name='Debiprasad', email='debi@example.com', active=True, banned=False)
+		contributor2 = Contributor.objects.create(name='User 2', email='user2@example.com', active=True, banned=False)
+		contributor3 = Contributor.objects.create(name='User 3', email='user3@example.com', active=True, banned=False)
 
-		batch1 = ContributionBatch.objects.create(site=site, contributor=contributor1, total_images=2, status=ContributionBatch.Status.COMPLETED)
-		batch2 = ContributionBatch.objects.create(site=site, contributor=contributor2, total_images=1, status=ContributionBatch.Status.COMPLETED)
-		batch3 = ContributionBatch.objects.create(site=site, contributor=contributor3, total_images=3, status=ContributionBatch.Status.COMPLETED)
+		contrib1 = Contribution.objects.create(mesh=mesh, contributor=contributor1, processed=True)
+		contrib2 = Contribution.objects.create(mesh=mesh, contributor=contributor2, processed=True)
+		contrib3 = Contribution.objects.create(mesh=mesh, contributor=contributor3, processed=True)
 
+		# Create images for each contribution
 		for idx in range(2):
-			ContributionImage.objects.create(
-				batch=batch1,
-				site=site,
-				image=SimpleUploadedFile(f'debi_{idx}.png', b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0cIDAT\x08\xd7c\xf8\xff\xff?\x00\x05\xfe\x02\xfeA\xb4\x1a\x9d\x00\x00\x00\x00IEND\xaeB`\x82', content_type='image/png'),
+			Image.objects.create(
+				contribution=contrib1,
+				image=self._make_image(f'debi_{idx}.png'),
 			)
-		ContributionImage.objects.create(
-			batch=batch2,
-			site=site,
-			image=SimpleUploadedFile('user2.png', b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0cIDAT\x08\xd7c\xf8\xff\xff?\x00\x05\xfe\x02\xfeA\xb4\x1a\x9d\x00\x00\x00\x00IEND\xaeB`\x82', content_type='image/png'),
+		Image.objects.create(
+			contribution=contrib2,
+			image=self._make_image('user2.png'),
 		)
 		for idx in range(3):
-			ContributionImage.objects.create(
-				batch=batch3,
-				site=site,
-				image=SimpleUploadedFile(f'user3_{idx}.png', b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0cIDAT\x08\xd7c\xf8\xff\xff?\x00\x05\xfe\x02\xfeA\xb4\x1a\x9d\x00\x00\x00\x00IEND\xaeB`\x82', content_type='image/png'),
+			Image.objects.create(
+				contribution=contrib3,
+				image=self._make_image(f'user3_{idx}.png'),
 			)
 
-		response = self.client.get(reverse('site-stats', args=[site.id]))
+		response = self.client.get(reverse('site-stats', args=[mesh.ID]))
 
 		self.assertEqual(response.status_code, 200)
 		payload = response.json()
@@ -71,12 +93,12 @@ class ContributorEmailSignalTests(TestCase):
 		contributor = Contributor.objects.create(
 			name='Debi',
 			email='debi@example.com',
-			is_active=False,
-			is_banned=False,
+			active=False,
+			banned=False,
 		)
 
-		contributor.is_active = True
-		contributor.save(update_fields=['is_active'])
+		contributor.active = True
+		contributor.save(update_fields=['active'])
 
 		mock_send_email.assert_called_once_with(contributor)
 
@@ -90,49 +112,51 @@ class ContributorEmailSignalTests(TestCase):
 		contributor = Contributor.objects.create(
 			name='Debi',
 			email='debi2@example.com',
-			is_active=False,
-			is_banned=False,
+			active=False,
+			banned=False,
 		)
 
-		contributor.is_banned = True
-		contributor.save(update_fields=['is_banned'])
+		contributor.banned = True
+		contributor.save(update_fields=['banned'])
 
 		mock_send_email.assert_called_once_with(contributor)
 
 
 class ContributionUploadApiTests(TestCase):
 	def setUp(self):
-		self.site = Site.objects.create(name='Ram Mandir', latitude=26.7956, longitude=82.1947)
+		self.mesh = Mesh.objects.create(
+			name='Ram Mandir 3',
+			country='India',
+			state='Uttar Pradesh',
+			district='Mathura',
+			preview=self._make_image('ram_prev.png'),
+			thumbnail=self._make_image('ram_thumb.png'),
+		)
 		self.contributor = Contributor.objects.create(
 			name='Debi',
 			email='debi-upload@example.com',
-			is_active=True,
-			is_banned=False,
+			active=True,
+			banned=False,
 		)
 		session = self.client.session
 		session['contributor_email'] = self.contributor.email
 		session.save()
 
 	def _make_image(self, name):
-		png_bytes = (
-			b'\x89PNG\r\n\x1a\n'
-			b'\x00\x00\x00\rIHDR'
-			b'\x00\x00\x00\x01'
-			b'\x00\x00\x00\x01'
-			b'\x08\x06\x00\x00\x00'
-			b'\x1f\x15\xc4\x89'
-			b'\x00\x00\x00\x0cIDAT'
-			b'\x08\xd7c\xf8\xff\xff?\x00\x05\xfe\x02\xfeA\xb4\x1a\x9d'
-			b'\x00\x00\x00\x00IEND\xaeB`\x82'
-		)
-		return SimpleUploadedFile(name, png_bytes, content_type='image/png')
+		"""Create a valid test PNG image (1x1 pixel, red)."""
+		# Create a real 1x1 PNG image using PIL
+		img = PILImage.new('RGB', (1, 1), color='red')
+		img_bytes = io.BytesIO()
+		img.save(img_bytes, format='PNG')
+		img_bytes.seek(0)
+		return SimpleUploadedFile(name, img_bytes.read(), content_type='image/png')
 
 	@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
 	def test_upload_creates_batch_and_images(self):
 		response = self.client.post(
 			reverse('contribution-upload'),
 			{
-				'site_id': str(self.site.id),
+				'site_id': str(self.mesh.ID),
 				'images': [self._make_image('ram1.png'), self._make_image('ram2.png')],
 			},
 		)
@@ -140,27 +164,24 @@ class ContributionUploadApiTests(TestCase):
 		self.assertEqual(response.status_code, 201)
 		payload = response.json()
 		self.assertEqual(payload['status'], 'success')
-		self.assertEqual(payload['batch']['total_images'], 2)
-		self.assertEqual(ContributionBatch.objects.count(), 1)
-		batch = ContributionBatch.objects.get()
-		self.assertEqual(batch.site, self.site)
-		self.assertEqual(batch.contributor, self.contributor)
-		self.assertEqual(batch.total_images, 2)
-		self.assertEqual(batch.status, ContributionBatch.Status.COMPLETED)
-		self.assertEqual(ContributionImage.objects.filter(batch=batch).count(), 2)
+		self.assertEqual(Contribution.objects.count(), 1)
+		contribution = Contribution.objects.get()
+		self.assertEqual(contribution.mesh, self.mesh)
+		self.assertEqual(contribution.contributor, self.contributor)
+		self.assertEqual(Image.objects.filter(contribution=contribution).count(), 2)
 
 	@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
 	def test_upload_rejects_banned_contributor(self):
-		self.contributor.is_banned = True
-		self.contributor.save(update_fields=['is_banned'])
+		self.contributor.banned = True
+		self.contributor.save(update_fields=['banned'])
 
 		response = self.client.post(
 			reverse('contribution-upload'),
 			{
-				'site_id': str(self.site.id),
+				'site_id': str(self.mesh.ID),
 				'images': [self._make_image('ram1.png')],
 			},
 		)
 
 		self.assertEqual(response.status_code, 403)
-		self.assertEqual(ContributionBatch.objects.count(), 0)
+		self.assertEqual(Contribution.objects.count(), 0)
