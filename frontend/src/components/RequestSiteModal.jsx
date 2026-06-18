@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getApiBaseUrl } from '../utils/apiConfig';
+import { extractCoordsFromGoogleMapsUrl, reverseGeocode, formatGeocodedAddress } from '../utils/geocoding';
 
 // Inline styles for modern, responsive modal
 const modalStyles = `
@@ -116,6 +117,97 @@ function RequestSiteModal({ isOpen, onClose, initialEmail = '', mapCoordinates =
   const [successMessage, setSuccessMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [localCoordinates, setLocalCoordinates] = useState(mapCoordinates);
+  const [resolvedAddress, setResolvedAddress] = useState('');
+
+  // Sync prop mapCoordinates to localCoordinates
+  useEffect(() => {
+    if (mapCoordinates) {
+      setLocalCoordinates(mapCoordinates);
+    }
+  }, [mapCoordinates]);
+
+  // Reverse geocode localCoordinates whenever it changes
+  useEffect(() => {
+    if (!localCoordinates) return undefined;
+
+    let active = true;
+    const performGeocoding = async () => {
+      const data = await reverseGeocode(localCoordinates.lat, localCoordinates.lng);
+      if (!active) return;
+      
+      if (data) {
+        const formatted = formatGeocodedAddress(data, localCoordinates);
+        setResolvedAddress(formatted);
+
+        // Autofill state and country if they are currently empty
+        const addr = data.address || {};
+        setForm((prev) => ({
+          ...prev,
+          stateName: prev.stateName || addr.state || '',
+          country: prev.country || addr.country || '',
+        }));
+      } else {
+        setResolvedAddress(`${localCoordinates.lat.toFixed(6)}, ${localCoordinates.lng.toFixed(6)}`);
+      }
+    };
+
+    performGeocoding();
+    return () => {
+      active = false;
+    };
+  }, [localCoordinates]);
+
+  // Handle changes to mapsUrl
+  useEffect(() => {
+    if (!form.mapsUrl) return undefined;
+
+    const coords = extractCoordsFromGoogleMapsUrl(form.mapsUrl);
+    if (!coords) return undefined;
+
+    setLocalCoordinates(coords);
+
+    let active = true;
+    const performGeocoding = async () => {
+      const data = await reverseGeocode(coords.lat, coords.lng);
+      if (!active) return;
+
+      if (data) {
+        const addr = data.address || {};
+        const formatted = formatGeocodedAddress(data, coords);
+        setResolvedAddress(formatted);
+
+        // Resolve POI/siteName
+        const poiKeys = [
+          'temple', 'monument', 'historic', 'tourism', 'amenity', 'attraction', 
+          'building', 'leisure', 'shop', 'hill', 'natural', 'religion', 'place_of_worship'
+        ];
+        let poiName = '';
+        for (const key of poiKeys) {
+          if (addr[key]) {
+            poiName = addr[key];
+            break;
+          }
+        }
+        if (!poiName) {
+          poiName = addr.landmark || addr.park || addr.square || '';
+        }
+
+        setForm((prev) => ({
+          ...prev,
+          siteName: poiName || prev.siteName,
+          stateName: addr.state || prev.stateName,
+          country: addr.country || prev.country,
+        }));
+      }
+    };
+
+    performGeocoding();
+    return () => {
+      active = false;
+    };
+  }, [form.mapsUrl]);
+
   // Only render if open
   if (!isOpen) return null;
 
@@ -151,7 +243,7 @@ function RequestSiteModal({ isOpen, onClose, initialEmail = '', mapCoordinates =
     console.log('handleSubmit fired');
 
     // Basic validation
-    if (!form.name || !form.email || !form.siteName || !form.stateName || !form.country || !form.agreeTerms || !form.agreePrivacy || !mapCoordinates) {
+    if (!form.name || !form.email || !form.siteName || !form.stateName || !form.country || !form.agreeTerms || !form.agreePrivacy || !localCoordinates) {
       setErrorMessage('All required fields and agreements must be filled.');
       return;
     }
@@ -166,8 +258,8 @@ function RequestSiteModal({ isOpen, onClose, initialEmail = '', mapCoordinates =
       formData.append('country', form.country);
       if (form.description) formData.append('description', form.description);
       if (form.mapsUrl) formData.append('google_maps_url', form.mapsUrl);
-      formData.append('latitude', String(mapCoordinates.lat));
-      formData.append('longitude', String(mapCoordinates.lng));
+      formData.append('latitude', String(localCoordinates.lat));
+      formData.append('longitude', String(localCoordinates.lng));
       formData.append('terms_accepted', 'true');
       formData.append('privacy_accepted', 'true');
       if (imageFile) formData.append('image', imageFile);
@@ -219,7 +311,7 @@ function RequestSiteModal({ isOpen, onClose, initialEmail = '', mapCoordinates =
           <button className="tirtha-modal-close" onClick={onClose} aria-label="Close modal">✕</button>
           <div className="tirtha-modal-title">Request Site Submission</div>
           <div className="tirtha-modal-hint">
-            {mapCoordinates ? `Last selected map coordinates: ${mapCoordinates.lat}, ${mapCoordinates.lng}` : 'Select location on map.'}
+            {localCoordinates ? `Last selected map location: ${resolvedAddress || `${localCoordinates.lat.toFixed(6)}, ${localCoordinates.lng.toFixed(6)}`}` : 'Select location on map.'}
           </div>
           <form className="tirtha-modal-form" onSubmit={handleSubmit} autoComplete="off">
             {/* 1. Name (required, wide) */}

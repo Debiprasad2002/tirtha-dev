@@ -8,6 +8,7 @@ import ModalViewer from '../components/ModalViewer';
 import ContributeModal from '../components/ContributeModal';
 import RequestSiteModal from '../components/RequestSiteModal';
 import { fetchSites } from '../services/sites.service';
+import { getReadableLocationName, reverseGeocode } from '../utils/geocoding';
 import '../styles/Home.css';
 
 const DEFAULT_CONTRIBUTE_TARGET = { title: 'Tirtha', siteName: null };
@@ -35,13 +36,15 @@ function Home() {
     if (typeof window === 'undefined') return false;
     return window.matchMedia('(max-width: 768px)').matches;
   };
-  const showSidebar = isMobileViewport() ? sidebarVisible : (!isFullscreen || sidebarVisible);
+  const showSidebar = sidebarVisible;
 
   useEffect(() => {
-    if (!isFullscreen && !isMobileViewport()) {
-      setSidebarVisible(true);
-    }
-  }, [isFullscreen]);
+    console.log('Home component mounted. Initial state - isFullscreen:', isFullscreen, 'sidebarVisible:', sidebarVisible);
+  }, []);
+
+  useEffect(() => {
+    console.log('Home state changed - isFullscreen:', isFullscreen, 'sidebarVisible:', sidebarVisible);
+  }, [isFullscreen, sidebarVisible]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -82,12 +85,45 @@ function Home() {
     // TODO: Implement 3D model viewer
   };
 
+  const resolveTempleLocation = async (temple) => {
+    const lat = temple?.position?.[0] ?? temple?.lat;
+    const lng = temple?.position?.[1] ?? temple?.lng;
+
+    if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) return;
+
+    try {
+      const geodata = await reverseGeocode(Number(lat), Number(lng));
+      const readableLocation = getReadableLocationName(geodata, {
+        lat: Number(lat),
+        lng: Number(lng),
+      });
+
+      if (!readableLocation) return;
+
+      setSelectedTemple((current) => {
+        if (!current || current.id !== temple.id) return current;
+
+        return {
+          ...current,
+          location: readableLocation,
+          resolvedLocationName: readableLocation,
+        };
+      });
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.error('Failed to resolve marker location:', error);
+      }
+    }
+  };
+
   const handleMarkerClick = (temple) => {
     if (import.meta.env.DEV) {
       console.log('Marker clicked:', temple);
     }
     setSelectedTemple(temple);
+    resolveTempleLocation(temple);
     setIsModalOpen(true);
+    setSidebarVisible(true);
   };
 
   const handleSearchSelect = (temple) => {
@@ -98,14 +134,10 @@ function Home() {
       fromSearch: true,
     };
     setSelectedTemple(templeWithPosition);
+    resolveTempleLocation(templeWithPosition);
     setSearchTarget({ position: [temple.lat, temple.lng], zoom: 12 });
     setIsModalOpen(false);
-    setSidebarVisible(false);
-  };
-
-  const openGeneralContribute = () => {
-    setContributeTarget(DEFAULT_CONTRIBUTE_TARGET);
-    setIsContributeOpen(true);
+    setSidebarVisible(true);
   };
 
   const openTempleContribute = (temple) => {
@@ -121,8 +153,6 @@ function Home() {
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    setSidebarVisible(false);
-    setSelectedTemple(null);
   };
 
   const resetRequestSelection = () => {
@@ -153,6 +183,13 @@ function Home() {
 
   const handleCancelLocationSelection = () => {
     resetRequestSelection();
+  };
+
+  const handleRequestSiteFromCustom = (coords) => {
+    setMapCoordinates(coords);
+    setSelectedPosition(coords);
+    setIsSelectingLocation(false);
+    setIsRequestSiteOpen(true);
   };
 
   // Handle ESC key to exit fullscreen and F key to toggle
@@ -189,21 +226,15 @@ function Home() {
         />
       )}
 
-      {!isModalOpen && (
-        <button
-          type="button"
-          className="mobile-sidebar-toggle"
-          onClick={() => setSidebarVisible((prev) => !prev)}
-          aria-label={sidebarVisible ? 'Hide sidebar' : 'Show sidebar'}
-          aria-expanded={sidebarVisible}
-        >
-          <span className="material-icons">menu</span>
-        </button>
-      )}
 
       <Sidebar 
         isVisible={showSidebar}
         onMobileClose={() => setSidebarVisible(false)}
+        selectedTemple={selectedTemple}
+        onTempleClose={() => setSelectedTemple(null)}
+        onOpenModel={() => setIsModalOpen(true)}
+        onContributeClick={() => openTempleContribute(selectedTemple)}
+        onRequestSite={handleRequestSiteFromCustom}
       />
       <div className="main-content">
         {!isFullscreen && (
@@ -224,6 +255,7 @@ function Home() {
               onConfirmLocation={handleConfirmLocation}
               onCancelLocationSelection={handleCancelLocationSelection}
               searchTarget={searchTarget}
+              selectedTemple={selectedTemple}
             />
 
             {isSitesLoading && (
@@ -242,11 +274,7 @@ function Home() {
               className="btn-fullscreen-toggle"
               onClick={(e) => {
                 e.stopPropagation();
-                const nextFullscreen = !isFullscreen;
-                setIsFullscreen(nextFullscreen);
-                if (!isMobileViewport()) {
-                  setSidebarVisible(!nextFullscreen);
-                }
+                setIsFullscreen((prev) => !prev);
               }}
               aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
             >
@@ -313,6 +341,21 @@ function Home() {
         initialEmail=""
         mapCoordinates={mapCoordinates}
       />
+
+      {!isModalOpen && (
+        <button
+          type="button"
+          className="mobile-sidebar-toggle"
+          onClick={() => {
+            console.log('Hamburger toggle button clicked! Toggle from:', sidebarVisible);
+            setSidebarVisible((prev) => !prev);
+          }}
+          aria-label={sidebarVisible ? 'Hide sidebar' : 'Show sidebar'}
+          aria-expanded={sidebarVisible}
+        >
+          <span className="material-icons">menu</span>
+        </button>
+      )}
     </div>
   );
 }

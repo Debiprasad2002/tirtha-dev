@@ -182,7 +182,39 @@
   font-size: 22px;
 }
 
-.mobile-sidebar-toggle,
+.mobile-sidebar-toggle {
+  position: fixed;
+  top: 15px;
+  left: 15px;
+  width: 46px;
+  height: 46px;
+  background-color: rgba(255, 152, 0, 0.95);
+  color: white;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 2000;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  pointer-events: auto;
+  padding: 0;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.mobile-sidebar-toggle:focus,
+.mobile-sidebar-toggle:focus-visible {
+  outline: none;
+}
+
+.mobile-sidebar-toggle:hover {
+  background-color: rgba(255, 167, 38, 0.95);
+  transform: scale(1.08);
+}
+
 .mobile-sidebar-backdrop {
   display: none;
 }

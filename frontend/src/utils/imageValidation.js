@@ -1,3 +1,5 @@
+import exifr from 'exifr';
+
 const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
 const MIN_IMAGE_DIMENSION = 640;
 const WARNING_IMAGE_DIMENSION = 1080;
@@ -110,12 +112,18 @@ export async function validateImageFile(file, options = {}) {
   }
 
   const hasExif = await checkExif(file);
-  if (!hasExif) {
-    return {
-      valid: false,
-      severity: 'invalid',
-      reason: 'Missing EXIF metadata. Please upload a camera/phone photo with metadata.',
-    };
+  let exifData = null;
+
+  if (hasExif) {
+    try {
+      exifData = await exifr.parse(file);
+    } catch (err) {
+      return {
+        valid: false,
+        severity: 'invalid',
+        reason: 'Corrupted EXIF metadata. Image EXIF is unreadable.',
+      };
+    }
   }
 
   try {
@@ -128,11 +136,22 @@ export async function validateImageFile(file, options = {}) {
         reason: `Image dimensions are too small (${size.width}×${size.height}). Minimum size is ${minDimension}px on the shorter side.`,
       };
     }
+
+    if (!hasExif) {
+      return {
+        valid: true,
+        severity: 'warning',
+        reason: 'Missing EXIF metadata. Images without EXIF might lack capture details.',
+        exif: null,
+      };
+    }
+
     if (shortSide < warningDimension) {
       return {
         valid: true,
         severity: 'warning',
         reason: `Low resolution (${size.width}×${size.height}). Images under ${warningDimension}px may be less useful.`,
+        exif: exifData,
       };
     }
   } catch {
@@ -147,5 +166,6 @@ export async function validateImageFile(file, options = {}) {
     valid: true,
     severity: 'valid',
     reason: 'Ready',
+    exif: exifData,
   };
 }

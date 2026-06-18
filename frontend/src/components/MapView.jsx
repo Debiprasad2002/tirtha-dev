@@ -9,6 +9,29 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
+const MAP_STYLES = {
+  osm: {
+    name: 'OpenStreetMap',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  },
+  google_roadmap: {
+    name: 'Google Roadmap',
+    url: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+    attribution: '&copy; Google Maps'
+  },
+  google_satellite: {
+    name: 'Google Satellite',
+    url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+    attribution: '&copy; Google Maps'
+  },
+  google_hybrid: {
+    name: 'Google Hybrid',
+    url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    attribution: '&copy; Google Maps'
+  }
+};
+
 function buildMarkerDataUrl(fillColor) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="25" height="41" viewBox="0 0 25 41"><path d="M12.5 0C6.148 0 1 5.148 1 11.5c0 8.176 10.338 20.523 11.025 21.337a.625.625 0 0 0 .95 0C13.662 32.023 24 19.676 24 11.5 24 5.148 18.852 0 12.5 0z" fill="${fillColor}" stroke="#ffffff" stroke-width="2"/><circle cx="12.5" cy="11.5" r="4.6" fill="#ffffff"/></svg>`;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
@@ -126,8 +149,9 @@ function getCompletionStatus(temple) {
   return indianKeywords.some((keyword) => location.includes(keyword)) ? 'complete' : 'partial';
 }
 
-function MapView({ templeList = [], onMarkerClick, onSearchSelect, showMapSearch = true, onMapClick, isSelectingLocation = false, selectedPosition = null, onSelectionPositionChange, onConfirmLocation, onCancelLocationSelection, searchTarget }) {
+function MapView({ templeList = [], onMarkerClick, onSearchSelect, showMapSearch = true, onMapClick, isSelectingLocation = false, selectedPosition = null, onSelectionPositionChange, onConfirmLocation, onCancelLocationSelection, searchTarget, selectedTemple }) {
   const [indiaBoundary, setIndiaBoundary] = useState(null);
+  const [mapStyle, setMapStyle] = useState('osm');
 
   const center = [20.5937, 78.9629];
   const zoom = 5;
@@ -333,8 +357,9 @@ function MapView({ templeList = [], onMarkerClick, onSearchSelect, showMapSearch
     <div className="map-view-container">
       <MapContainer center={center} zoom={zoom} scrollWheelZoom className="map-instance">
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          key={mapStyle}
+          attribution={MAP_STYLES[mapStyle].attribution}
+          url={MAP_STYLES[mapStyle].url}
         />
 
         {showMapSearch && (
@@ -366,6 +391,23 @@ function MapView({ templeList = [], onMarkerClick, onSearchSelect, showMapSearch
               },
             }}
           />
+        )}
+
+        {selectedTemple && selectedTemple.isCustomLocation && (
+          <Marker
+            position={selectedTemple.position}
+            icon={selectionMarkerIcon}
+          >
+            <Tooltip
+              direction="top"
+              offset={[0, -48]}
+              opacity={1}
+              className="custom-tooltip"
+              permanent
+            >
+              <div style={{ fontWeight: 600 }}>{selectedTemple.name.length > 30 ? 'Selected Location' : selectedTemple.name}</div>
+            </Tooltip>
+          </Marker>
         )}
 
         <MarkerClusterGroup
@@ -411,6 +453,24 @@ function MapView({ templeList = [], onMarkerClick, onSearchSelect, showMapSearch
       <MapBranding />
 
       <MapLegend />
+
+      {/* Map style selector */}
+      <div className="map-style-selector-overlay">
+        {Object.entries(MAP_STYLES).map(([key, style]) => (
+          <button
+            key={key}
+            type="button"
+            className={`map-style-btn ${mapStyle === key ? 'active' : ''}`}
+            onClick={() => setMapStyle(key)}
+            title={style.name}
+          >
+            <span className="material-icons">
+              {key === 'osm' ? 'map' : key === 'google_roadmap' ? 'navigation' : key === 'google_satellite' ? 'satellite' : 'layers'}
+            </span>
+            <span className="btn-text">{style.name}</span>
+          </button>
+        ))}
+      </div>
 
       {isSelectingLocation && selectedPosition && (
         <div className="location-picker-overlay">

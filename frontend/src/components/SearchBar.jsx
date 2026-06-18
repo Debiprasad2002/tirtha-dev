@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { extractCoordsFromGoogleMapsUrl } from '../utils/geocoding';
 import '../styles/SearchBar.css';
 
 const SAMPLE_PLACEHOLDERS = [
@@ -74,6 +75,19 @@ function SearchBar({ templeList = [], onSearchSelect, variant = 'default' }) {
     return () => window.clearTimeout(timerId);
   }, [searchQuery]);
 
+  const customLocationSuggestion = useMemo(() => {
+    if (!searchQuery.trim()) return null;
+    const coords = extractCoordsFromGoogleMapsUrl(searchQuery);
+    if (!coords) return null;
+    return {
+      name: searchQuery,
+      location: "Open Google Maps URL / Coordinates",
+      lat: coords.lat,
+      lng: coords.lng,
+      isCustomLocation: true,
+    };
+  }, [searchQuery]);
+
   const filteredSuggestions = useMemo(() => {
     if (!debouncedQuery) return [];
 
@@ -85,16 +99,35 @@ function SearchBar({ templeList = [], onSearchSelect, variant = 'default' }) {
       .slice(0, 8);
   }, [debouncedQuery, templeList]);
 
+  const allSuggestions = useMemo(() => {
+    const list = [...filteredSuggestions];
+    if (customLocationSuggestion) {
+      list.unshift(customLocationSuggestion);
+    }
+    return list;
+  }, [filteredSuggestions, customLocationSuggestion]);
+
   useEffect(() => {
-    setActiveIndex(filteredSuggestions.length > 0 ? 0 : -1);
-  }, [filteredSuggestions.length]);
+    setActiveIndex(allSuggestions.length > 0 ? 0 : -1);
+  }, [allSuggestions.length]);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (activeIndex >= 0 && activeIndex < filteredSuggestions.length) {
-      handleSuggestionClick(filteredSuggestions[activeIndex]);
-    } else if (filteredSuggestions.length > 0) {
-      handleSuggestionClick(filteredSuggestions[0]);
+    const coords = extractCoordsFromGoogleMapsUrl(searchQuery);
+    if (coords) {
+      handleSuggestionClick({
+        name: searchQuery,
+        location: "Open Google Maps URL / Coordinates",
+        lat: coords.lat,
+        lng: coords.lng,
+        isCustomLocation: true
+      });
+      return;
+    }
+    if (activeIndex >= 0 && activeIndex < allSuggestions.length) {
+      handleSuggestionClick(allSuggestions[activeIndex]);
+    } else if (allSuggestions.length > 0) {
+      handleSuggestionClick(allSuggestions[0]);
     }
   };
 
@@ -121,11 +154,11 @@ function SearchBar({ templeList = [], onSearchSelect, variant = 'default' }) {
   };
 
   const handleKeyDown = (e) => {
-    if (!filteredSuggestions.length) return;
+    if (!allSuggestions.length) return;
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActiveIndex((prev) => Math.min(prev + 1, filteredSuggestions.length - 1));
+      setActiveIndex((prev) => Math.min(prev + 1, allSuggestions.length - 1));
       setIsFocused(true);
     }
 
@@ -135,9 +168,9 @@ function SearchBar({ templeList = [], onSearchSelect, variant = 'default' }) {
       setIsFocused(true);
     }
 
-    if (e.key === 'Enter' && activeIndex >= 0 && activeIndex < filteredSuggestions.length) {
+    if (e.key === 'Enter' && activeIndex >= 0 && activeIndex < allSuggestions.length) {
       e.preventDefault();
-      handleSuggestionClick(filteredSuggestions[activeIndex]);
+      handleSuggestionClick(allSuggestions[activeIndex]);
     }
   };
 
@@ -173,18 +206,18 @@ function SearchBar({ templeList = [], onSearchSelect, variant = 'default' }) {
 
       {isFocused && (
         <div className="search-dropdown">
-          {searchQuery.trim() && filteredSuggestions.length > 0 ? (
+          {searchQuery.trim() && allSuggestions.length > 0 ? (
             <div className="search-suggestions">
-              {filteredSuggestions.map((temple, index) => (
+              {allSuggestions.map((temple, index) => (
                 <button
                   key={temple.name}
                   type="button"
                   className={`suggestion-item ${index === activeIndex ? 'active' : ''}`}
                   onClick={() => handleSuggestionClick(temple)}
                 >
-                  <span className="suggestion-icon">📍</span>
+                  <span className="suggestion-icon">{temple.isCustomLocation ? '📍' : '📍'}</span>
                   <span className="suggestion-text">
-                    <span className="suggestion-name">{temple.name}</span>
+                    <span className="suggestion-name" style={{ wordBreak: 'break-all' }}>{temple.name}</span>
                     <span className="suggestion-location">{temple.location}</span>
                   </span>
                 </button>

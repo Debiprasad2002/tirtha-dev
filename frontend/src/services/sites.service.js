@@ -10,12 +10,16 @@ function normalizeSite(site) {
     return null;
   }
 
+  const location = site.location || [site.state, site.country].filter(Boolean).join(', ') || 'India';
+
   return {
     id: site.id,
     name: site.name || `Site ${site.id}`,
     lat,
     lng,
-    location: site.location || 'India',
+    location,
+    state: site.state,
+    country: site.country,
     status: site.status,
     modelPath: site.modelPath,
     description: site.description,

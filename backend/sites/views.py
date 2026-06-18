@@ -117,8 +117,6 @@ def _get_current_contributor(request):
 
 	if contributor.is_banned:
 		return None, JsonResponse({"allow_upload": False, "message": "Account banned. Contact admin.",}, status=403)
-	if not contributor.is_active:
-		return None, JsonResponse({"allow_upload": False, "message": "Contributor approval required.", "approval_required": True}, status=403)
 
 	return contributor, None
 
@@ -226,7 +224,7 @@ def google_login(request):
 		defaults={
 			"name": name,
 			"profile_picture": picture,
-			"is_active": False,
+			"is_active": True,
 			"is_banned": False,
 		},
 	)
@@ -251,9 +249,6 @@ def google_login(request):
 	if contributor.is_banned:
 		status = "banned"
 		message = "Account banned. Contact admin."
-	elif not contributor.is_active:
-		status = "waiting_approval"
-		message = "Signed in — waiting for admin approval."
 	else:
 		status = "approved"
 		message = "Signed in and approved."
@@ -276,6 +271,19 @@ def google_login(request):
 	return _cors_headers(resp, origin)
 
 
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def google_logout(request):
+	origin = request.headers.get('Origin')
+	if request.method == 'OPTIONS':
+		resp = HttpResponse(status=204)
+		return _cors_headers(resp, origin)
+
+	request.session.flush()
+	resp = JsonResponse({"status": "success", "message": "Successfully signed out."})
+	return _cors_headers(resp, origin)
+
+
 @ensure_csrf_cookie
 @require_http_methods(["GET", "OPTIONS"])
 def current_contributor(request):
@@ -295,9 +303,6 @@ def current_contributor(request):
 	if contributor.is_banned:
 		status = "banned"
 		message = "Account banned. Contact admin."
-	elif not contributor.is_active:
-		status = "waiting_approval"
-		message = "Signed in — waiting for admin approval."
 	else:
 		status = "approved"
 		message = "Signed in and approved."
@@ -392,6 +397,93 @@ def site_submission_request(request):
 
 
 @require_http_methods(["POST", "OPTIONS"])
+def _extract_and_validate_exif(uploaded_file):
+	from PIL import Image
+	from PIL.ExifTags import TAGS
+
+	metadata = {
+		"camera_make": None,
+		"camera_model": None,
+		"date_taken": None,
+		"focal_length": None,
+		"gps_latitude": None,
+		"gps_longitude": None,
+	}
+
+	try:
+		uploaded_file.seek(0)
+		with Image.open(uploaded_file) as img:
+			img.verify()
+	except Exception as exc:
+		raise ValidationError(f"Corrupted image file: {str(exc)}")
+
+	try:
+		uploaded_file.seek(0)
+		with Image.open(uploaded_file) as img:
+			exif = img.getexif()
+			if exif:
+				if 271 in exif:
+					metadata["camera_make"] = str(exif[271]).strip()
+				if 272 in exif:
+					metadata["camera_model"] = str(exif[272]).strip()
+				if 36867 in exif:
+					metadata["date_taken"] = str(exif[36867]).strip()
+				elif 306 in exif:
+					metadata["date_taken"] = str(exif[306]).strip()
+				if 37386 in exif:
+					fl = exif[37386]
+					if isinstance(fl, tuple) and len(fl) == 2:
+						try:
+							metadata["focal_length"] = f"{float(fl[0]) / float(fl[1]):.1f} mm"
+						except Exception:
+							metadata["focal_length"] = str(fl)
+					else:
+						try:
+							metadata["focal_length"] = f"{float(fl):.1f} mm"
+						except Exception:
+							metadata["focal_length"] = str(fl)
+
+				try:
+					gps_ifd = exif.get_ifd(0x8825)
+					if gps_ifd:
+						lat_ref = gps_ifd.get(1)
+						lat_val = gps_ifd.get(2)
+						lon_ref = gps_ifd.get(3)
+						lon_val = gps_ifd.get(4)
+
+						if lat_ref and lat_val and lon_ref and lon_val:
+							def _to_dec(val):
+								try:
+									d = float(val[0])
+									m = float(val[1])
+									s = float(val[2])
+									return d + (m / 60.0) + (s / 3600.0)
+								except Exception:
+									return 0.0
+
+							latitude = _to_dec(lat_val)
+							if str(lat_ref).upper() != "N":
+								latitude = -latitude
+
+							longitude = _to_dec(lon_val)
+							if str(lon_ref).upper() != "E":
+								longitude = -longitude
+
+							metadata["gps_latitude"] = latitude
+							metadata["gps_longitude"] = longitude
+				except Exception:
+					pass
+	except Exception as exc:
+		raise ValidationError(f"Invalid metadata structures: {str(exc)}")
+	finally:
+		try:
+			uploaded_file.seek(0)
+		except Exception:
+			pass
+
+	return metadata
+
+
 def upload_contributions(request):
 	origin = request.headers.get('Origin')
 	if request.method == "OPTIONS":
@@ -420,6 +512,16 @@ def upload_contributions(request):
 		except ValidationError as exc:
 			return _cors_headers(_json_error(str(exc), status=400), origin)
 
+	metadata_json = request.POST.get("metadata_json")
+	metadata_map = {}
+	if metadata_json:
+		try:
+			metadata_list = json.loads(metadata_json)
+			for item in metadata_list:
+				metadata_map[item.get("name")] = item
+		except Exception:
+			pass
+
 	try:
 		with transaction.atomic():
 			batch = ContributionBatch.objects.create(
@@ -431,19 +533,39 @@ def upload_contributions(request):
 
 			created_images = []
 			for uploaded_file in uploaded_files:
+				# Extract and validate EXIF metadata server-side
+				metadata = _extract_and_validate_exif(uploaded_file)
+				
+				meta = metadata_map.get(uploaded_file.name, {})
+				is_compressed = meta.get("is_compressed", False)
+				original_filename = meta.get("original_filename", uploaded_file.name)
+				original_file_size = meta.get("original_file_size", uploaded_file.size)
+
 				created_images.append(
 					ContributionImage.objects.create(
 						batch=batch,
 						site=site,
 						image=uploaded_file,
+						camera_make=metadata["camera_make"],
+						camera_model=metadata["camera_model"],
+						date_taken=metadata["date_taken"],
+						focal_length=metadata["focal_length"],
+						gps_latitude=metadata["gps_latitude"],
+						gps_longitude=metadata["gps_longitude"],
+						is_compressed=is_compressed,
+						original_filename=original_filename,
+						original_file_size=original_file_size,
+						uploaded_file_size=uploaded_file.size,
 					)
 				)
 
 			batch.status = ContributionBatch.Status.COMPLETED
 			batch.total_images = len(created_images)
 			batch.save(update_fields=["status", "total_images"])
-	except Exception:
-		return _cors_headers(_json_error("Unable to store uploaded images.", status=500), origin)
+	except ValidationError as exc:
+		return _cors_headers(_json_error(str(exc), status=400), origin)
+	except Exception as exc:
+		return _cors_headers(_json_error(f"Unable to store uploaded images: {str(exc)}", status=500), origin)
 
 	response = JsonResponse(
 		{
@@ -462,13 +584,27 @@ def upload_contributions(request):
 					"site_id": image.site_id,
 					"image": image.image.name,
 					"uploaded_at": image.uploaded_at.isoformat(),
+					"metadata": {
+						"camera_make": image.camera_make,
+						"camera_model": image.camera_model,
+						"date_taken": image.date_taken,
+						"focal_length": image.focal_length,
+						"gps_latitude": image.gps_latitude,
+						"gps_longitude": image.gps_longitude,
+						"is_compressed": image.is_compressed,
+						"original_filename": image.original_filename,
+						"original_file_size": image.original_file_size,
+						"uploaded_file_size": image.uploaded_file_size,
+					}
 				}
 				for image in created_images
 			],
 		},
 		status=201,
 	)
+
 	return _cors_headers(response, origin)
+
 
 
 @require_http_methods(["GET", "OPTIONS"])

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
+import imageCompression from 'browser-image-compression';
 import FileUploadBox from './FileUploadBox';
 import Snackbar from './Snackbar';
 import { getApiBaseUrl } from '../utils/apiConfig';
@@ -22,6 +23,7 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState('');
   const [isGsiReady, setIsGsiReady] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [previewFilter, setPreviewFilter] = useState('all');
   const [selectedPreviewImage, setSelectedPreviewImage] = useState(null);
 
@@ -81,6 +83,8 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
       return;
     }
 
+    setIsAuthLoading(true);
+    setAuthMessage('');
     try {
       const API_BASE = getApiBaseUrl();
       const res = await fetch(`${API_BASE}/api/auth/google-login/`, {
@@ -110,8 +114,51 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
       }
     } catch {
       setAuthMessage('Sign-in failed.');
+    } finally {
+      setIsAuthLoading(false);
     }
   };
+
+  const handleSignOut = async () => {
+    setIsAuthLoading(true);
+    try {
+      const API_BASE = getApiBaseUrl();
+      await fetch(`${API_BASE}/api/auth/logout/`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken() || '',
+        },
+      });
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      setContributor({ status: 'anonymous', info: null });
+      setAuthMessage('Successfully signed out.');
+      addToast('Successfully signed out.', 'success');
+      setIsAuthLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (isGsiReady && !isAuthLoading && (!contributor || !contributor.info)) {
+      if (googleButtonRef.current && window.google && window.google.accounts && window.google.accounts.id) {
+        try {
+          window.google.accounts.id.renderButton(googleButtonRef.current, {
+            theme: 'outline',
+            size: 'large',
+            text: 'signin_with',
+            shape: 'rectangular',
+            logo_alignment: 'left',
+          });
+        } catch (err) {
+          console.error('Error rendering Google button:', err);
+        }
+      }
+    }
+  }, [isOpen, isGsiReady, isAuthLoading, contributor]);
 
   const loadGsi = () => new Promise((resolve, reject) => {
     if (window.google && window.google.accounts && window.google.accounts.id) {
@@ -227,7 +274,8 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
       setTermsAccepted(false);
       setError('');
     }
-  }, [isOpen, selectedFiles]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const handleRemoveFile = (fileId) => {
     setSelectedFiles((current) => {
@@ -295,11 +343,75 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
 
       const validation = await validateImageFile(file, { minDimension: 640, warningDimension: 1080 });
       const previewUrl = URL.createObjectURL(file);
+      
+      const exif = validation.exif;
+      const parseExifDate = (val) => {
+        if (!val) return null;
+        if (val instanceof Date) return val.toLocaleString();
+        try {
+          const d = new Date(String(val).replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3'));
+          return isNaN(d.getTime()) ? String(val) : d.toLocaleString();
+        } catch {
+          return String(val);
+        }
+      };
+
+      const metadata = exif ? {
+        cameraMake: exif.Make || null,
+        cameraModel: exif.Model || null,
+        dateTaken: parseExifDate(exif.DateTimeOriginal || exif.DateTime),
+        focalLength: exif.FocalLength ? `${exif.FocalLength} mm` : null,
+        gpsStatus: (exif.latitude !== undefined && exif.longitude !== undefined) ? 'GPS available' : 'No GPS metadata',
+        latitude: exif.latitude || null,
+        longitude: exif.longitude || null,
+      } : {
+        cameraMake: null,
+        cameraModel: null,
+        dateTaken: null,
+        focalLength: null,
+        gpsStatus: 'No GPS metadata',
+        latitude: null,
+        longitude: null,
+      };
+
+      let compressedFile = null;
+      let compressedSize = null;
+      let isCompressed = false;
+
+      if (validation.severity !== 'invalid') {
+        try {
+          const options = {
+            maxSizeMB: 1.5,
+            maxWidthOrHeight: 4096,
+            useWebWorker: true,
+            initialQuality: 0.8,
+          };
+          const compressedBlob = await imageCompression(file, options);
+          compressedFile = new File([compressedBlob], file.name, {
+            type: file.type,
+            lastModified: Date.now(),
+          });
+          compressedSize = compressedFile.size;
+          isCompressed = compressedFile.size < file.size;
+        } catch (err) {
+          console.error('Compression failed, using original file:', err);
+          compressedFile = file;
+          compressedSize = file.size;
+          isCompressed = false;
+        }
+      }
+
       nextFiles.push({
         id: fileKey,
-        file,
+        file: isCompressed ? compressedFile : file,
+        originalFile: file,
+        compressedFile: compressedFile || file,
         previewUrl,
         validation,
+        metadata,
+        isCompressed,
+        originalSize: file.size,
+        compressedSize: compressedSize || file.size,
       });
       existingKeys.add(fileKey);
       addedCount += 1;
@@ -355,6 +467,19 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
   const warningCount = selectedFiles.filter((item) => item.validation?.severity === 'warning').length;
   const invalidCount = selectedFiles.filter((item) => item.validation?.severity === 'invalid').length;
   const uploadableFiles = selectedFiles.filter((item) => item.validation?.severity !== 'invalid');
+  
+  const totalOriginalSize = uploadableFiles.reduce((acc, item) => acc + (item.originalSize || item.file.size), 0);
+  const totalCompressedSize = uploadableFiles.reduce((acc, item) => acc + (item.compressedSize || item.file.size), 0);
+  const totalSavedPercent = totalOriginalSize > 0 ? Math.round(((totalOriginalSize - totalCompressedSize) / totalOriginalSize) * 100) : 0;
+
+  const formatBytes = (bytes) => {
+    if (!bytes) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   const uploadButtonLabel = uploadableFiles.length > 0
     ? `Upload ${uploadableFiles.length} Image${uploadableFiles.length > 1 ? 's' : ''}`
     : 'Upload';
@@ -416,9 +541,28 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
       formData.append('sequential_order', sequentialOrder ? 'true' : 'false');
       formData.append('allow_full_resolution', allowFullResolution ? 'true' : 'false');
 
-      uploadableFiles.forEach((item) => {
-        formData.append('images', item.file, item.file.name);
+      const filesToUpload = uploadableFiles.map((item) => {
+        const file = allowFullResolution ? item.originalFile : item.compressedFile;
+        return {
+          file,
+          name: file.name,
+          original_filename: item.originalFile.name,
+          original_file_size: item.originalFile.size,
+          is_compressed: !allowFullResolution && item.isCompressed,
+        };
       });
+
+      filesToUpload.forEach((item) => {
+        formData.append('images', item.file, item.name);
+      });
+
+      const metadataJson = JSON.stringify(filesToUpload.map((item) => ({
+        name: item.name,
+        original_filename: item.original_filename,
+        original_file_size: item.original_file_size,
+        is_compressed: item.is_compressed,
+      })));
+      formData.append('metadata_json', metadataJson);
 
       const csrfToken = getCsrfToken();
       const headers = {};
@@ -501,22 +645,41 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
         <div className="contribute-header">
           <h2>Contribute to {contributionTarget}</h2>
           {siteName && <p className="site-target-note">Selected site: {siteName}</p>}
-          <button
-            type="button"
-            className="google-signin-btn"
-            ref={googleButtonRef}
-            onClick={handleGoogleSignIn}
-          >
-            <span className="google-signin-icon" aria-hidden="true">
-              <svg viewBox="0 0 533.5 544.3" xmlns="http://www.w3.org/2000/svg" focusable="false">
-                <path fill="#4285F4" d="M533.5 278.4c0-17.5-1.4-34.4-4.1-50.7H272v95.8h146.9c-6.3 34.2-25 63.2-53.6 82.7v68.8h86.6c50.8-46.8 80.6-115.8 80.6-196.6z"/>
-                <path fill="#34A853" d="M272 544.3c72.6 0 133.6-24.2 178.2-65.8l-86.6-68.8c-24.1 16.2-55 25.7-91.6 25.7-70.4 0-130-47.5-151.3-111.4H32.8v69.8C77.8 488.3 167.3 544.3 272 544.3z"/>
-                <path fill="#FBBC05" d="M120.7 325.1c-10.6-31.1-10.6-64.3 0-95.4V159.9H32.8c-39.9 79.8-39.9 175.1 0 254.9l87.9-69.7z"/>
-                <path fill="#EA4335" d="M272 107.7c38.6 0 73.4 13.3 100.8 39.4l75.6-75.6C405.6 24.6 344.6 0 272 0 167.3 0 77.8 56 32.8 159.9l87.9 69.8C142 155.2 201.6 107.7 272 107.7z"/>
-              </svg>
-            </span>
-            Sign in with Google
-          </button>
+          {isAuthLoading ? (
+            <div className="auth-loading-spinner-container">
+              <div className="auth-loading-spinner" />
+              <span className="auth-loading-text">Signing in...</span>
+            </div>
+          ) : contributor && contributor.info ? (
+            <div className="contributor-profile">
+              {contributor.info.profile_picture ? (
+                <img
+                  src={contributor.info.profile_picture}
+                  alt={contributor.info.name || 'User'}
+                  className="contributor-avatar"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="contributor-avatar-fallback">
+                  {contributor.info.name ? contributor.info.name[0].toUpperCase() : 'U'}
+                </div>
+              )}
+              <div className="contributor-details">
+                <span className="contributor-name">{contributor.info.name || 'Contributor'}</span>
+                <span className="contributor-email">{contributor.info.email}</span>
+              </div>
+              <button
+                type="button"
+                className="switch-account-btn"
+                onClick={handleSignOut}
+              >
+                <span className="material-icons">logout</span>
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <div ref={googleButtonRef} className="google-signin-container" />
+          )}
         </div>
 
         {selectedPreviewImage && (
@@ -538,6 +701,12 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
               <div className="lightbox-caption">
                 <strong>{selectedPreviewImage.file.name}</strong>
                 <span>{getFileSizeLabel(selectedPreviewImage.file.size)}</span>
+                <div className="lightbox-exif">
+                  <div><strong>Camera:</strong> {selectedPreviewImage.metadata?.cameraMake || ''} {selectedPreviewImage.metadata?.cameraModel || 'Unknown'}</div>
+                  <div><strong>Focal Length:</strong> {selectedPreviewImage.metadata?.focalLength || 'Unknown'}</div>
+                  <div><strong>Date Taken:</strong> {selectedPreviewImage.metadata?.dateTaken || 'Unknown'}</div>
+                  <div><strong>GPS Info:</strong> {selectedPreviewImage.metadata?.gpsStatus} {selectedPreviewImage.metadata?.latitude ? `(${selectedPreviewImage.metadata.latitude.toFixed(5)}, ${selectedPreviewImage.metadata.longitude.toFixed(5)})` : ''}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -549,17 +718,6 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
           </div>
         )}
 
-        {/* Auth status banner: shows waiting/approved/banned messages */}
-        {contributor && contributor.status === 'waiting_approval' && (
-          <div className="auth-banner auth-waiting">
-            Signed in as {contributor.info?.name || contributor.info?.email}. Please wait for admin approval before uploading.
-          </div>
-        )}
-        {contributor && contributor.status === 'approved' && (
-          <div className="auth-banner auth-approved">
-            Signed in as {contributor.info?.name || contributor.info?.email}. You are approved to upload images.
-          </div>
-        )}
         {contributor && contributor.status === 'banned' && (
           <div className="auth-banner auth-banned">
             Your account has been banned. Contact the site admin for assistance.
@@ -619,6 +777,21 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
                 <span className="summary-pill invalid">{invalidCount} invalid</span>
               </div>
 
+              <div className="compression-batch-summary">
+                {allowFullResolution ? (
+                  <div className="summary-details">
+                    <span><strong>Total Size:</strong> {formatBytes(totalOriginalSize)}</span>
+                    <span className="mode-badge full-res">Full Resolution Upload</span>
+                  </div>
+                ) : (
+                  <div className="summary-details">
+                    <span><strong>Original:</strong> {formatBytes(totalOriginalSize)}</span>
+                    <span><strong>Compressed:</strong> {formatBytes(totalCompressedSize)}</span>
+                    <span className="savings-badge">Saved {totalSavedPercent}%</span>
+                  </div>
+                )}
+              </div>
+
               {uploadStatus && (
                 <div className="upload-progress-wrapper">
                   <div className="upload-progress-top">
@@ -652,9 +825,34 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
                     <div className="preview-image-wrapper">
                       <img src={item.previewUrl} alt={item.file.name} />
                     </div>
-                    <div className="preview-card-body">
+                      <div className="preview-card-body">
                       <div className="preview-filename">{item.file.name}</div>
-                      <div className="preview-meta">{getFileSizeLabel(item.file.size)}</div>
+                      <div className="preview-meta">
+                        {allowFullResolution ? (
+                          <span>{getFileSizeLabel(item.originalSize)} (Full Res)</span>
+                        ) : item.isCompressed ? (
+                          <>
+                            <span className="original-size-strike">{getFileSizeLabel(item.originalSize)}</span>
+                            <span className="compressed-size-label"> → {getFileSizeLabel(item.compressedSize)}</span>
+                            <span className="savings-badge-small"> (-{Math.round(((item.originalSize - item.compressedSize) / item.originalSize) * 100)}%)</span>
+                          </>
+                        ) : (
+                          getFileSizeLabel(item.originalSize)
+                        )}
+                      </div>
+                      
+                      <div className="preview-exif-info">
+                        <div><strong>Model:</strong> {item.metadata?.cameraModel || 'Unknown'}</div>
+                        <div><strong>Focal Length:</strong> {item.metadata?.focalLength || 'Unknown'}</div>
+                        <div><strong>Date:</strong> {item.metadata?.dateTaken || 'Unknown'}</div>
+                        <div className={`gps-badge ${item.metadata?.gpsStatus === 'GPS available' ? 'available' : 'missing'}`}>
+                          <span className="material-icons gps-icon">
+                            {item.metadata?.gpsStatus === 'GPS available' ? 'gps_fixed' : 'gps_off'}
+                          </span>
+                          {item.metadata?.gpsStatus}
+                        </div>
+                      </div>
+
                       <span className={`status-badge ${item.validation?.severity || 'invalid'}`}>
                         {item.validation?.severity === 'valid'
                           ? 'Ready'

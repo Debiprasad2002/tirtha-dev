@@ -1,6 +1,7 @@
 import React, { useEffect, lazy, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fetchSiteStats } from '../services/sites.service';
+import { buildGoogleMapsSearchUrl } from '../utils/geocoding';
 import '../styles/ModalViewer.css';
 
 const ModelViewer3D = lazy(() => import('./ModelViewer3D'));
@@ -42,6 +43,11 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
       'Information is currently placeholder content for demo purposes.',
     ],
   };
+  const mapsUrl = buildGoogleMapsSearchUrl({
+    placeName: temple?.resolvedLocationName || templeInfo.title,
+    location: templeInfo.location,
+    coordinates: templeInfo.coordinates,
+  });
   const detailsText = typeof temple?.details === 'string' ? temple.details.trim() : '';
   const detailsList = Array.isArray(temple?.details)
     ? temple.details.filter((detail) => (typeof detail === 'string' ? detail.trim() : Boolean(detail)))
@@ -245,8 +251,28 @@ function ModalViewer({ isOpen, onClose, temple, onContributeClick }) {
                 
                 <div className="sidebar-body">
                   <div className="info-section">
-                    <p className="location">📍 {templeInfo.location}</p>
+                    <p className="location">
+                      📍 {templeInfo.location}
+                      <a 
+                        href={mapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="google-maps-location-link"
+                        title="View on Google Maps"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          marginLeft: '6px',
+                          color: '#2563eb',
+                          textDecoration: 'none',
+                          verticalAlign: 'middle'
+                        }}
+                      >
+                        <span className="material-icons" style={{ fontSize: '16px' }}>open_in_new</span>
+                      </a>
+                    </p>
                   </div>
+
 
                   {renderSection('description', 'Description', <p>{templeInfo.description}</p>)}
 

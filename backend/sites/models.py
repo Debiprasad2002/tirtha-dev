@@ -95,6 +95,18 @@ class ContributionImage(models.Model):
         validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "webp", "gif", "bmp", "tif", "tiff"])],
     )
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    camera_make = models.CharField(max_length=255, blank=True, null=True)
+    camera_model = models.CharField(max_length=255, blank=True, null=True)
+    date_taken = models.CharField(max_length=100, blank=True, null=True)
+    focal_length = models.CharField(max_length=100, blank=True, null=True)
+    gps_latitude = models.FloatField(blank=True, null=True)
+    gps_longitude = models.FloatField(blank=True, null=True)
+    is_compressed = models.BooleanField(default=False)
+    original_filename = models.CharField(max_length=255, blank=True, null=True)
+    original_file_size = models.PositiveIntegerField(blank=True, null=True)
+    uploaded_file_size = models.PositiveIntegerField(blank=True, null=True)
+
+
 
     class Meta:
         ordering = ["id"]

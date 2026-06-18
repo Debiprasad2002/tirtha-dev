@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../hooks/useTheme';
 import AccordionItem from './AccordionItem';
 import PlatformStatistics from './StatisticsCard';
+import LocationCard from './LocationCard';
+import { buildGoogleMapsSearchUrl } from '../utils/geocoding';
 import '../styles/Sidebar.css';
 
 // Import footer icons
@@ -13,7 +15,7 @@ import lfdsLogoLight from '../assets/icons/ui/lfds-logo-light.webp';
 import tirthaLogoDark from '../assets/icons/ui/tirtha-logo-dark.webp';
 import tirthaLogoLight from '../assets/icons/ui/tirtha-logo-light.webp';
 
-function Sidebar({ isVisible, onMobileClose }) {
+function Sidebar({ isVisible, onMobileClose, selectedTemple = null, onTempleClose, onOpenModel, onContributeClick, onRequestSite }) {
   const { t } = useTranslation(['sidebar', 'common']);
   const { isDark } = useTheme();
   const [sidebarWidth, setSidebarWidth] = useState(380);
@@ -87,6 +89,18 @@ function Sidebar({ isVisible, onMobileClose }) {
     }
   }, [isVisible]);
 
+  const selectedTempleCoordinates = selectedTemple
+    ? {
+        lat: selectedTemple.position ? selectedTemple.position[0] : selectedTemple.lat,
+        lng: selectedTemple.position ? selectedTemple.position[1] : selectedTemple.lng,
+      }
+    : null;
+  const selectedTempleMapsUrl = buildGoogleMapsSearchUrl({
+    placeName: selectedTemple?.resolvedLocationName || selectedTemple?.name,
+    location: selectedTemple?.location,
+    coordinates: selectedTempleCoordinates,
+  });
+
   return (
     <aside 
       className={`sidebar ${isVisible ? 'visible' : 'hidden'}`}
@@ -109,22 +123,129 @@ function Sidebar({ isVisible, onMobileClose }) {
           </button>
         </div>
         <div className="sidebar-content">
-          {visibleMenuItems.map((item) => (
-            <div key={`${getAccordionId(item.title)}-${closeNonce}`} data-accordion-id={getAccordionId(item.title)}>
-              <AccordionItem
-                title={item.title}
-                content={item.content}
-                isOpen={false}
-                isCelebration={item.isCelebration || false}
+          {selectedTemple ? (
+            selectedTemple.isCustomLocation ? (
+              <LocationCard
+                selectedLocation={selectedTemple}
+                onBack={onTempleClose}
+                onRequestSite={onRequestSite}
               />
-            </div>
-          ))}
+            ) : (
+              <div className="sidebar-temple-details">
+              <button 
+                type="button" 
+                className="temple-details-back-btn" 
+                onClick={onTempleClose}
+              >
+                <span className="material-icons">arrow_back</span>
+                Back
+              </button>
 
-          <AccordionItem
-            title="Project Statistics & Contributors"
-            content={<PlatformStatistics />}
-            isOpen={false}
-          />
+              <div className="temple-details-img-container">
+                <img 
+                  className="temple-details-img" 
+                  src={`https://via.placeholder.com/300x200?text=${encodeURIComponent(selectedTemple.name)}`} 
+                  alt={selectedTemple.name} 
+                />
+              </div>
+
+              <h2 className="temple-details-name">{selectedTemple.name}</h2>
+              
+              <div className="temple-details-location">
+                <span className="material-icons">location_on</span>
+                {selectedTemple.location || 'India'}
+                <a 
+                  href={selectedTempleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="google-maps-location-link"
+                  title="View on Google Maps"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    marginLeft: '6px',
+                    color: '#2563eb',
+                    textDecoration: 'none',
+                    verticalAlign: 'middle'
+                  }}
+                >
+                  <span className="material-icons" style={{ fontSize: '16px' }}>open_in_new</span>
+                </a>
+              </div>
+
+
+              {selectedTemple.description && (
+                <div className="temple-details-section">
+                  <h3 className="temple-details-section-title">Description</h3>
+                  <p className="temple-details-description">{selectedTemple.description}</p>
+                </div>
+              )}
+
+              {selectedTemple.details && (
+                <div className="temple-details-section">
+                  <h3 className="temple-details-section-title">Details</h3>
+                  <div className="temple-details-section-content">
+                    {Array.isArray(selectedTemple.details) ? (
+                      <ul>
+                        {selectedTemple.details.map((detail, idx) => (
+                          <li key={idx}>{detail}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>{selectedTemple.details}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="temple-details-section">
+                <h3 className="temple-details-section-title">Coordinates</h3>
+                <div className="temple-details-coords">
+                  Lat: {selectedTemple.position ? selectedTemple.position[0]?.toFixed(5) : selectedTemple.lat?.toFixed(5)}
+                  <br />
+                  Lng: {selectedTemple.position ? selectedTemple.position[1]?.toFixed(5) : selectedTemple.lng?.toFixed(5)}
+                </div>
+              </div>
+
+              <div className="temple-details-actions">
+                <button 
+                  type="button" 
+                  className="btn btn-primary" 
+                  onClick={onOpenModel}
+                >
+                  <span className="material-icons">view_in_ar</span>
+                  View 3D Model
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={onContributeClick}
+                >
+                  <span className="material-icons">cloud_upload</span>
+                  Contribute Images
+                </button>
+              </div>
+            </div>
+          )) : (
+            <>
+              {visibleMenuItems.map((item) => (
+                <div key={`${getAccordionId(item.title)}-${closeNonce}`} data-accordion-id={getAccordionId(item.title)}>
+                  <AccordionItem
+                    title={item.title}
+                    content={item.content}
+                    isOpen={false}
+                    isCelebration={item.isCelebration || false}
+                  />
+                </div>
+              ))}
+
+              <AccordionItem
+                title="Project Statistics & Contributors"
+                content={<PlatformStatistics />}
+                isOpen={false}
+              />
+            </>
+          )}
 
           <div className="sidebar-footer">
             <div className="footer-icons">
