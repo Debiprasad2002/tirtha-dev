@@ -1,4 +1,20 @@
-import exifr from 'exifr';
+import exifr, { fileParsers } from 'exifr';
+
+// Dynamically register extra HEIF brands in exifr to support all HEIF variations (.heif, .heics, .heifs, mif1, msf1, etc.)
+if (fileParsers && fileParsers.has('heic')) {
+  const HeicParser = fileParsers.get('heic');
+  const HeifParserBase = Object.getPrototypeOf(HeicParser);
+  if (HeifParserBase) {
+    const brands = ['heif', 'heifs', 'heics', 'mif1', 'msf1', 'hevc', 'hevx'];
+    brands.forEach(brand => {
+      if (!fileParsers.has(brand)) {
+        class CustomParser extends HeifParserBase {}
+        CustomParser.type = brand;
+        fileParsers.set(brand, CustomParser);
+      }
+    });
+  }
+}
 
 const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
 const MIN_IMAGE_DIMENSION = 640;
@@ -13,6 +29,10 @@ const VALID_IMAGE_EXTENSIONS = [
   '.bmp',
   '.tif',
   '.tiff',
+  '.heic',
+  '.heif',
+  '.heics',
+  '.heifs',
 ];
 
 const SUPPORTED_IMAGE_TYPES = new Set([
@@ -22,6 +42,10 @@ const SUPPORTED_IMAGE_TYPES = new Set([
   'image/gif',
   'image/bmp',
   'image/tiff',
+  'image/heic',
+  'image/heif',
+  'image/heic-sequence',
+  'image/heif-sequence',
 ]);
 
 export function isSupportedImageFile(file) {
@@ -34,6 +58,21 @@ export function isSupportedImageFile(file) {
   const fileName = file.name || '';
   const extension = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
   return VALID_IMAGE_EXTENSIONS.includes(extension);
+}
+
+const VALID_VIDEO_EXTENSIONS = ['.mp4', '.mov'];
+const SUPPORTED_VIDEO_TYPES = new Set(['video/mp4', 'video/quicktime']);
+
+export function isSupportedVideoFile(file) {
+  if (!file) return false;
+  const fileType = (file.type || '').toLowerCase();
+  if (SUPPORTED_VIDEO_TYPES.has(fileType)) {
+    return true;
+  }
+
+  const fileName = file.name || '';
+  const extension = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
+  return VALID_VIDEO_EXTENSIONS.includes(extension);
 }
 
 export function getFileExtension(file) {
@@ -95,11 +134,27 @@ export async function validateImageFile(file, options = {}) {
     };
   }
 
+  if (isSupportedVideoFile(file)) {
+    if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+      return {
+        valid: false,
+        severity: 'invalid',
+        reason: 'Oversized file. Video must be 10 MB or smaller.',
+      };
+    }
+    return {
+      valid: true,
+      severity: 'valid',
+      reason: 'Ready',
+      fileType: 'video',
+    };
+  }
+
   if (!isSupportedImageFile(file)) {
     return {
       valid: false,
       severity: 'invalid',
-      reason: 'Unsupported image type. Accepted files are JPG, PNG, WEBP, GIF, BMP, TIFF.',
+      reason: 'Unsupported image type. Accepted files are JPG, PNG, WEBP, GIF, BMP, TIFF, HEIC, HEIF.',
     };
   }
 
@@ -111,7 +166,52 @@ export async function validateImageFile(file, options = {}) {
     };
   }
 
-  const hasExif = await checkExif(file);
+  const extension = getFileExtension(file);
+  const fileType = (file.type || '').toLowerCase();
+  const isHeic =
+    extension === '.heic' ||
+    extension === '.heif' ||
+    extension === '.heics' ||
+    extension === '.heifs' ||
+    fileType === 'image/heic' ||
+    fileType === 'image/heif' ||
+    fileType === 'image/heic-sequence' ||
+    fileType === 'image/heif-sequence';
+
+  let convertedFile = null;
+  if (isHeic) {
+    try {
+      const module = await import('heic2any');
+      const heic2any = module.default || module;
+      
+      const conversionPromise = heic2any({
+        blob: file,
+        toType: 'image/jpeg',
+      });
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Conversion timeout')), 30000)
+      );
+
+      let convertedBlob = await Promise.race([conversionPromise, timeoutPromise]);
+
+      if (Array.isArray(convertedBlob)) {
+        convertedBlob = convertedBlob[0];
+      }
+
+      if (!convertedBlob) {
+        throw new Error('No converted blob returned');
+      }
+
+      const newFileName = file.name.replace(/\.(heic|heif|heics|heifs)$/i, '.jpg');
+      convertedFile = new File([convertedBlob], newFileName, { type: 'image/jpeg' });
+    } catch (err) {
+      console.warn('HEIC/HEIF client-side conversion failed, falling back to server-side processing:', err);
+      // Keep convertedFile = null and proceed to parse EXIF and accept file
+    }
+  }
+
+  const hasExif = isHeic || await checkExif(file);
   let exifData = null;
 
   if (hasExif) {
@@ -126,8 +226,22 @@ export async function validateImageFile(file, options = {}) {
     }
   }
 
+  let size = null;
   try {
-    const size = await loadImageSize(file);
+    if (convertedFile) {
+      size = await loadImageSize(convertedFile);
+    } else if (!isHeic) {
+      size = await loadImageSize(file);
+    }
+  } catch (err) {
+    return {
+      valid: false,
+      severity: 'invalid',
+      reason: 'Unable to read image dimensions. Please try another file.',
+    };
+  }
+
+  if (size) {
     const shortSide = Math.min(size.width, size.height);
     if (shortSide < minDimension) {
       return {
@@ -143,6 +257,7 @@ export async function validateImageFile(file, options = {}) {
         severity: 'warning',
         reason: 'Missing EXIF metadata. Images without EXIF might lack capture details.',
         exif: null,
+        convertedFile,
       };
     }
 
@@ -152,13 +267,16 @@ export async function validateImageFile(file, options = {}) {
         severity: 'warning',
         reason: `Low resolution (${size.width}×${size.height}). Images under ${warningDimension}px may be less useful.`,
         exif: exifData,
+        convertedFile,
       };
     }
-  } catch {
+  } else if (isHeic && !convertedFile) {
     return {
-      valid: false,
-      severity: 'invalid',
-      reason: 'Unable to read image dimensions. Please try another file.',
+      valid: true,
+      severity: 'warning',
+      reason: 'HEIC/HEIF image preview unavailable. Image will be processed on the server.',
+      exif: exifData,
+      convertedFile: null,
     };
   }
 
@@ -167,5 +285,7 @@ export async function validateImageFile(file, options = {}) {
     severity: 'valid',
     reason: 'Ready',
     exif: exifData,
+    convertedFile,
   };
 }
+

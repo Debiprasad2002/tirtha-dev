@@ -212,13 +212,32 @@ function RequestSiteModal({ isOpen, onClose, initialEmail = '', mapCoordinates =
   if (!isOpen) return null;
 
   // File preview
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setImageFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result);
-    reader.readAsDataURL(file);
+
+    const fileName = file.name || '';
+    const extension = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
+    const isHeic = extension === '.heic' || extension === '.heif';
+
+    if (isHeic) {
+      try {
+        const heic2any = (await import('heic2any')).default;
+        const convertedBlob = await heic2any({ blob: file, toType: 'image/jpeg' });
+        const convertedFile = new File([convertedBlob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
+        const reader = new FileReader();
+        reader.onloadend = () => setImagePreview(reader.result);
+        reader.readAsDataURL(convertedFile);
+      } catch (err) {
+        console.error('HEIC preview conversion failed:', err);
+        setImagePreview(null);
+      }
+    } else {
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result);
+      reader.readAsDataURL(file);
+    }
   };
 
   // Form field change

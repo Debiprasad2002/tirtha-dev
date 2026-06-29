@@ -20,10 +20,16 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          three: ['three', '@react-three/fiber', '@react-three/drei'],
-          leaflet: ['leaflet', 'react-leaflet', 'react-leaflet-cluster'],
-          i18n: ['i18next', 'react-i18next'],
+        manualChunks(id) {
+          if (id.includes('three') || id.includes('@react-three')) {
+            return 'three';
+          }
+          if (id.includes('leaflet') || id.includes('react-leaflet')) {
+            return 'leaflet';
+          }
+          if (id.includes('i18next') || id.includes('react-i18next')) {
+            return 'i18n';
+          }
         },
       },
     },

@@ -115,15 +115,9 @@ class ContributionUploadApiTests(TestCase):
 
 	def _make_image(self, name):
 		png_bytes = (
-			b'\x89PNG\r\n\x1a\n'
-			b'\x00\x00\x00\rIHDR'
-			b'\x00\x00\x00\x01'
-			b'\x00\x00\x00\x01'
-			b'\x08\x06\x00\x00\x00'
-			b'\x1f\x15\xc4\x89'
-			b'\x00\x00\x00\x0cIDAT'
-			b'\x08\xd7c\xf8\xff\xff?\x00\x05\xfe\x02\xfeA\xb4\x1a\x9d'
-			b'\x00\x00\x00\x00IEND\xaeB`\x82'
+			b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01'
+			b'\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc```\x00\x00'
+			b'\x00\x04\x00\x01\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82'
 		)
 		return SimpleUploadedFile(name, png_bytes, content_type='image/png')
 
@@ -164,3 +158,137 @@ class ContributionUploadApiTests(TestCase):
 
 		self.assertEqual(response.status_code, 403)
 		self.assertEqual(ContributionBatch.objects.count(), 0)
+
+	def _make_heif_image(self, name, size=(100, 100)):
+		from PIL import Image
+		from pillow_heif import register_heif_opener
+		import io
+		register_heif_opener()
+		img = Image.new('RGB', size)
+		buf = io.BytesIO()
+		img.save(buf, format='HEIF')
+		return SimpleUploadedFile(name, buf.getvalue(), content_type='image/heic')
+
+	@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+	def test_upload_converts_heif_file(self):
+		heic_file = self._make_heif_image('photo.heic')
+		response = self.client.post(
+			reverse('contribution-upload'),
+			{
+				'site_id': str(self.site.id),
+				'images': [heic_file],
+			},
+		)
+
+		self.assertEqual(response.status_code, 201)
+		payload = response.json()
+		self.assertEqual(payload['status'], 'success')
+		
+		self.assertEqual(ContributionImage.objects.count(), 1)
+		c_img = ContributionImage.objects.get()
+		self.assertTrue(c_img.image.name.endswith('.jpg'))
+		
+		from PIL import Image
+		with Image.open(c_img.image.path) as opened_img:
+			self.assertEqual(opened_img.format, 'JPEG')
+			self.assertEqual(opened_img.size, (100, 100))
+
+	@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+	def test_upload_resizes_large_heif_file(self):
+		heic_file = self._make_heif_image('large_photo.heic', size=(5000, 1000))
+		response = self.client.post(
+			reverse('contribution-upload'),
+			{
+				'site_id': str(self.site.id),
+				'images': [heic_file],
+			},
+		)
+
+		self.assertEqual(response.status_code, 201)
+		payload = response.json()
+		self.assertEqual(payload['status'], 'success')
+		
+		self.assertEqual(ContributionImage.objects.count(), 1)
+		c_img = ContributionImage.objects.get()
+		self.assertTrue(c_img.image.name.endswith('.jpg'))
+		
+		from PIL import Image
+		with Image.open(c_img.image.path) as opened_img:
+			self.assertEqual(opened_img.format, 'JPEG')
+			self.assertEqual(opened_img.size, (4096, 819))
+
+	@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+	def test_upload_valid_video(self):
+		video_file = SimpleUploadedFile('test.mp4', b'fake video bytes', content_type='video/mp4')
+		response = self.client.post(
+			reverse('contribution-upload'),
+			{
+				'site_id': str(self.site.id),
+				'images': [video_file],
+			},
+		)
+
+		self.assertEqual(response.status_code, 201)
+		payload = response.json()
+		self.assertEqual(payload['status'], 'success')
+		self.assertEqual(payload['batch']['total_images'], 1)
+		
+		self.assertEqual(ContributionImage.objects.count(), 1)
+		c_img = ContributionImage.objects.get()
+		self.assertEqual(c_img.file_type, 'video')
+		self.assertTrue(c_img.image.name.endswith('.mp4'))
+		self.assertIsNone(c_img.gps_latitude)
+		self.assertIsNone(c_img.camera_make)
+		
+		self.assertEqual(payload['images'][0]['file_type'], 'video')
+		self.assertIsNone(payload['images'][0]['metadata']['camera_make'])
+
+	@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+	def test_upload_invalid_video_mime(self):
+		video_file = SimpleUploadedFile('test.mp4', b'fake video bytes', content_type='text/plain')
+		response = self.client.post(
+			reverse('contribution-upload'),
+			{
+				'site_id': str(self.site.id),
+				'images': [video_file],
+			},
+		)
+
+		self.assertEqual(response.status_code, 400)
+		payload = response.json()
+		self.assertEqual(payload['status'], 'error')
+		self.assertIn('MIME type', payload['message'])
+
+	@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+	def test_upload_invalid_video_extension(self):
+		video_file = SimpleUploadedFile('test.avi', b'fake video bytes', content_type='video/avi')
+		response = self.client.post(
+			reverse('contribution-upload'),
+			{
+				'site_id': str(self.site.id),
+				'images': [video_file],
+			},
+		)
+
+		self.assertEqual(response.status_code, 400)
+		payload = response.json()
+		self.assertEqual(payload['status'], 'error')
+		self.assertIn('Only image files can be uploaded', payload['message'])
+
+	@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+	def test_upload_oversized_video(self):
+		large_bytes = b'0' * (10 * 1024 * 1024 + 1024)
+		video_file = SimpleUploadedFile('test.mp4', large_bytes, content_type='video/mp4')
+		response = self.client.post(
+			reverse('contribution-upload'),
+			{
+				'site_id': str(self.site.id),
+				'images': [video_file],
+			},
+		)
+
+		self.assertEqual(response.status_code, 400)
+		payload = response.json()
+		self.assertEqual(payload['status'], 'error')
+		self.assertIn('10 MB or smaller', payload['message'])
+

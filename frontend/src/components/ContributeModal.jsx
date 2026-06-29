@@ -330,103 +330,156 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
     }
 
     setIsValidationBusy(true);
-    const nextFiles = [];
-    const existingKeys = new Set(selectedFiles.map((item) => item.id));
-    let addedCount = 0;
+    try {
+      const nextFiles = [];
+      const existingKeys = new Set(selectedFiles.map((item) => item.id));
+      let addedCount = 0;
 
-    for (const file of Array.from(files)) {
-      const fileKey = `${file.name}-${file.size}-${file.lastModified}`;
-      if (existingKeys.has(fileKey)) {
-        addToast(`${file.name} already added.`, 'info', 3000);
-        continue;
-      }
-
-      const validation = await validateImageFile(file, { minDimension: 640, warningDimension: 1080 });
-      const previewUrl = URL.createObjectURL(file);
-      
-      const exif = validation.exif;
-      const parseExifDate = (val) => {
-        if (!val) return null;
-        if (val instanceof Date) return val.toLocaleString();
-        try {
-          const d = new Date(String(val).replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3'));
-          return isNaN(d.getTime()) ? String(val) : d.toLocaleString();
-        } catch {
-          return String(val);
+      for (const file of Array.from(files)) {
+        const fileKey = `${file.name}-${file.size}-${file.lastModified}`;
+        if (existingKeys.has(fileKey)) {
+          addToast(`${file.name} already added.`, 'info', 3000);
+          continue;
         }
-      };
 
-      const metadata = exif ? {
-        cameraMake: exif.Make || null,
-        cameraModel: exif.Model || null,
-        dateTaken: parseExifDate(exif.DateTimeOriginal || exif.DateTime),
-        focalLength: exif.FocalLength ? `${exif.FocalLength} mm` : null,
-        gpsStatus: (exif.latitude !== undefined && exif.longitude !== undefined) ? 'GPS available' : 'No GPS metadata',
-        latitude: exif.latitude || null,
-        longitude: exif.longitude || null,
-      } : {
-        cameraMake: null,
-        cameraModel: null,
-        dateTaken: null,
-        focalLength: null,
-        gpsStatus: 'No GPS metadata',
-        latitude: null,
-        longitude: null,
-      };
+        const validation = await validateImageFile(file, { minDimension: 640, warningDimension: 1080 });
+        const displayFile = validation.convertedFile || file;
+        const previewUrl = URL.createObjectURL(displayFile);
+        
+        const exif = validation.exif;
+        const parseExifDate = (val) => {
+          if (!val) return null;
+          if (val instanceof Date) return val.toLocaleString();
+          try {
+            const d = new Date(String(val).replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3'));
+            return isNaN(d.getTime()) ? String(val) : d.toLocaleString();
+          } catch {
+            return String(val);
+          }
+        };
 
-      let compressedFile = null;
-      let compressedSize = null;
-      let isCompressed = false;
-
-      if (validation.severity !== 'invalid') {
-        try {
-          const options = {
-            maxSizeMB: 1.5,
-            maxWidthOrHeight: 4096,
-            useWebWorker: true,
-            initialQuality: 0.8,
+        const convertDMSToDecimal = (dms, ref) => {
+          if (!dms || dms.length < 3) return null;
+          const parseVal = (val) => {
+            if (typeof val === 'number') return val;
+            if (val && typeof val === 'object' && val.numerator !== undefined) {
+              return val.numerator / (val.denominator || 1);
+            }
+            return parseFloat(val) || 0;
           };
-          const compressedBlob = await imageCompression(file, options);
-          compressedFile = new File([compressedBlob], file.name, {
-            type: file.type,
-            lastModified: Date.now(),
-          });
-          compressedSize = compressedFile.size;
-          isCompressed = compressedFile.size < file.size;
-        } catch (err) {
-          console.error('Compression failed, using original file:', err);
-          compressedFile = file;
-          compressedSize = file.size;
-          isCompressed = false;
+          const degrees = parseVal(dms[0]);
+          const minutes = parseVal(dms[1]);
+          const seconds = parseVal(dms[2]);
+          let decimal = degrees + minutes / 60.0 + seconds / 3600.0;
+          if (ref === 'S' || ref === 'W') {
+            decimal = -decimal;
+          }
+          return decimal;
+        };
+
+        let latitude = exif?.latitude !== undefined && exif?.latitude !== null ? exif.latitude : null;
+        let longitude = exif?.longitude !== undefined && exif?.longitude !== null ? exif.longitude : null;
+
+        if (exif && latitude === null && exif.GPSLatitude && exif.GPSLatitudeRef) {
+          latitude = convertDMSToDecimal(exif.GPSLatitude, exif.GPSLatitudeRef);
+        }
+        if (exif && longitude === null && exif.GPSLongitude && exif.GPSLongitudeRef) {
+          longitude = convertDMSToDecimal(exif.GPSLongitude, exif.GPSLongitudeRef);
+        }
+
+        let altitude = null;
+        if (exif && exif.GPSAltitude !== undefined && exif.GPSAltitude !== null) {
+          if (typeof exif.GPSAltitude === 'number') {
+            altitude = exif.GPSAltitude;
+          } else if (Array.isArray(exif.GPSAltitude)) {
+            altitude = exif.GPSAltitude[0] / (exif.GPSAltitude[1] || 1);
+          } else if (typeof exif.GPSAltitude === 'object' && exif.GPSAltitude.numerator !== undefined) {
+            altitude = exif.GPSAltitude.numerator / (exif.GPSAltitude.denominator || 1);
+          } else {
+            altitude = parseFloat(exif.GPSAltitude);
+          }
+          if (altitude !== null && exif.GPSAltitudeRef === 1) {
+            altitude = -altitude;
+          }
+        }
+
+        const metadata = exif ? {
+          cameraMake: exif.Make || null,
+          cameraModel: exif.Model || null,
+          dateTaken: parseExifDate(exif.DateTimeOriginal || exif.DateTime),
+          focalLength: exif.FocalLength ? `${exif.FocalLength} mm` : null,
+          gpsStatus: (latitude !== null && longitude !== null) ? 'GPS available' : 'GPS: Not Available',
+          latitude: latitude,
+          longitude: longitude,
+          altitude: altitude,
+        } : {
+          cameraMake: null,
+          cameraModel: null,
+          dateTaken: null,
+          focalLength: null,
+          gpsStatus: 'GPS: Not Available',
+          latitude: null,
+          longitude: null,
+          altitude: null,
+        };
+
+        let compressedFile = null;
+        let compressedSize = null;
+        let isCompressed = false;
+
+        if (validation.severity !== 'invalid' && validation.fileType !== 'video') {
+          try {
+            const options = {
+              maxSizeMB: 1.5,
+              maxWidthOrHeight: 4096,
+              useWebWorker: true,
+              initialQuality: 0.8,
+            };
+            const compressedBlob = await imageCompression(displayFile, options);
+            compressedFile = new File([compressedBlob], displayFile.name, {
+              type: displayFile.type,
+              lastModified: Date.now(),
+            });
+            compressedSize = compressedFile.size;
+            isCompressed = compressedFile.size < file.size;
+          } catch (err) {
+            console.error('Compression failed, using original file:', err);
+            compressedFile = file;
+            compressedSize = file.size;
+            isCompressed = false;
+          }
+        }
+
+        nextFiles.push({
+          id: fileKey,
+          file: isCompressed ? compressedFile : file,
+          originalFile: file,
+          compressedFile: compressedFile || file,
+          previewUrl,
+          validation,
+          metadata,
+          isCompressed,
+          originalSize: file.size,
+          compressedSize: compressedSize || file.size,
+        });
+        existingKeys.add(fileKey);
+        addedCount += 1;
+
+        if (validation.severity === 'invalid') {
+          addToast(`Ignored ${file.name}: ${validation.reason}`, 'warning', 6000);
         }
       }
 
-      nextFiles.push({
-        id: fileKey,
-        file: isCompressed ? compressedFile : file,
-        originalFile: file,
-        compressedFile: compressedFile || file,
-        previewUrl,
-        validation,
-        metadata,
-        isCompressed,
-        originalSize: file.size,
-        compressedSize: compressedSize || file.size,
-      });
-      existingKeys.add(fileKey);
-      addedCount += 1;
-
-      if (validation.severity === 'invalid') {
-        addToast(`Ignored ${file.name}: ${validation.reason}`, 'warning', 6000);
+      if (nextFiles.length > 0) {
+        setSelectedFiles((current) => [...current, ...nextFiles]);
+        addToast(`${addedCount} file${addedCount > 1 ? 's' : ''} added to preview.`, 'info');
       }
+    } catch (error) {
+      console.error('Error during file handling/validation:', error);
+      addToast('An error occurred during file validation.', 'error');
+    } finally {
+      setIsValidationBusy(false);
     }
-
-    if (nextFiles.length > 0) {
-      setSelectedFiles((current) => [...current, ...nextFiles]);
-      addToast(`${addedCount} file${addedCount > 1 ? 's' : ''} added to preview.`, 'info');
-    }
-
-    setIsValidationBusy(false);
   };
 
   const checkPreUpload = async () => {
@@ -471,6 +524,11 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
   const totalOriginalSize = uploadableFiles.reduce((acc, item) => acc + (item.originalSize || item.file.size), 0);
   const totalCompressedSize = uploadableFiles.reduce((acc, item) => acc + (item.compressedSize || item.file.size), 0);
   const totalSavedPercent = totalOriginalSize > 0 ? Math.round(((totalOriginalSize - totalCompressedSize) / totalOriginalSize) * 100) : 0;
+  const hasHeicFile = uploadableFiles.some(
+    (item) =>
+      (item.file?.name || '').match(/\.(heic|heif|heics|heifs)$/i) ||
+      (item.originalFile?.name || '').match(/\.(heic|heif|heics|heifs)$/i)
+  );
 
   const formatBytes = (bytes) => {
     if (!bytes) return '0 Bytes';
@@ -542,7 +600,7 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
       formData.append('allow_full_resolution', allowFullResolution ? 'true' : 'false');
 
       const filesToUpload = uploadableFiles.map((item) => {
-        const file = allowFullResolution ? item.originalFile : item.compressedFile;
+        const file = allowFullResolution ? item.originalFile : item.file;
         return {
           file,
           name: file.name,
@@ -693,19 +751,46 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
               >
                 <span className="material-icons">close</span>
               </button>
-              <img
-                className="lightbox-img"
-                src={selectedPreviewImage.previewUrl}
-                alt={selectedPreviewImage.file.name}
-              />
+              {selectedPreviewImage.validation?.fileType === 'video' ? (
+                <video
+                  className="lightbox-video"
+                  src={selectedPreviewImage.previewUrl}
+                  controls
+                  autoPlay
+                />
+              ) : selectedPreviewImage.file.name.match(/\.(heic|heif|heics|heifs)$/i) && !selectedPreviewImage.validation?.convertedFile ? (
+                <div className="lightbox-heic-fallback">
+                  <span className="material-icons fallback-icon">image</span>
+                  <span className="fallback-text">HEIC Image Preview Unavailable</span>
+                  <span className="fallback-subtext">This image will be converted to JPEG automatically when uploaded.</span>
+                </div>
+              ) : (
+                <img
+                  className="lightbox-img"
+                  src={selectedPreviewImage.previewUrl}
+                  alt={selectedPreviewImage.file.name}
+                />
+              )}
               <div className="lightbox-caption">
-                <strong>{selectedPreviewImage.file.name}</strong>
-                <span>{getFileSizeLabel(selectedPreviewImage.file.size)}</span>
+                <div className="lightbox-caption-header">
+                  <strong>{selectedPreviewImage.file.name}</strong>
+                  <span>{getFileSizeLabel(selectedPreviewImage.file.size)}</span>
+                </div>
                 <div className="lightbox-exif">
                   <div><strong>Camera:</strong> {selectedPreviewImage.metadata?.cameraMake || ''} {selectedPreviewImage.metadata?.cameraModel || 'Unknown'}</div>
                   <div><strong>Focal Length:</strong> {selectedPreviewImage.metadata?.focalLength || 'Unknown'}</div>
                   <div><strong>Date Taken:</strong> {selectedPreviewImage.metadata?.dateTaken || 'Unknown'}</div>
-                  <div><strong>GPS Info:</strong> {selectedPreviewImage.metadata?.gpsStatus} {selectedPreviewImage.metadata?.latitude ? `(${selectedPreviewImage.metadata.latitude.toFixed(5)}, ${selectedPreviewImage.metadata.longitude.toFixed(5)})` : ''}</div>
+                  {selectedPreviewImage.metadata?.latitude !== null && selectedPreviewImage.metadata?.longitude !== null ? (
+                    <>
+                      <div><strong>Latitude:</strong> {parseFloat(selectedPreviewImage.metadata.latitude).toFixed(4)}</div>
+                      <div><strong>Longitude:</strong> {parseFloat(selectedPreviewImage.metadata.longitude).toFixed(4)}</div>
+                      {selectedPreviewImage.metadata.altitude !== null && (
+                        <div><strong>Altitude:</strong> {parseFloat(selectedPreviewImage.metadata.altitude).toFixed(1)} m</div>
+                      )}
+                    </>
+                  ) : (
+                    <div><strong>GPS:</strong> Not Available</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -792,6 +877,15 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
                 )}
               </div>
 
+              {hasHeicFile && !allowFullResolution && (
+                <div className="heic-compression-note">
+                  <span className="material-icons note-icon">info</span>
+                  <span className="note-text">
+                    HEIC/HEIF images are already highly compressed; additional client-side compression may provide little or no size reduction.
+                  </span>
+                </div>
+              )}
+
               {uploadStatus && (
                 <div className="upload-progress-wrapper">
                   <div className="upload-progress-top">
@@ -823,7 +917,16 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
                       <span className="material-icons">close</span>
                     </button>
                     <div className="preview-image-wrapper">
-                      <img src={item.previewUrl} alt={item.file.name} />
+                      {item.validation?.fileType === 'video' ? (
+                        <video src={item.previewUrl} controls className="preview-video" />
+                      ) : item.file.name.match(/\.(heic|heif|heics|heifs)$/i) && !item.validation?.convertedFile ? (
+                        <div className="preview-heic-fallback">
+                          <span className="material-icons fallback-icon">image</span>
+                          <span className="fallback-text">HEIC</span>
+                        </div>
+                      ) : (
+                        <img src={item.previewUrl} alt={item.file.name} />
+                      )}
                     </div>
                       <div className="preview-card-body">
                       <div className="preview-filename">{item.file.name}</div>
@@ -845,12 +948,14 @@ function ContributeModal({ isOpen, onClose, targetName = 'Tirtha', siteName = nu
                         <div><strong>Model:</strong> {item.metadata?.cameraModel || 'Unknown'}</div>
                         <div><strong>Focal Length:</strong> {item.metadata?.focalLength || 'Unknown'}</div>
                         <div><strong>Date:</strong> {item.metadata?.dateTaken || 'Unknown'}</div>
-                        <div className={`gps-badge ${item.metadata?.gpsStatus === 'GPS available' ? 'available' : 'missing'}`}>
-                          <span className="material-icons gps-icon">
-                            {item.metadata?.gpsStatus === 'GPS available' ? 'gps_fixed' : 'gps_off'}
-                          </span>
-                          {item.metadata?.gpsStatus}
-                        </div>
+                        {item.metadata?.latitude !== null && item.metadata?.longitude !== null ? (
+                          <>
+                            <div><strong>Latitude:</strong> {parseFloat(item.metadata.latitude).toFixed(4)}</div>
+                            <div><strong>Longitude:</strong> {parseFloat(item.metadata.longitude).toFixed(4)}</div>
+                          </>
+                        ) : (
+                          <div><strong>GPS:</strong> Not Available</div>
+                        )}
                       </div>
 
                       <span className={`status-badge ${item.validation?.severity || 'invalid'}`}>

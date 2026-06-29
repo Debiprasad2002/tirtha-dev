@@ -11,7 +11,11 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
+from pillow_heif import register_heif_opener
+register_heif_opener()
+
 from .models import Site, Contributor, ContributionBatch, ContributionImage, SiteSubmissionRequest
+
 
 
 def _allowed_origin(origin):
@@ -59,19 +63,36 @@ def _get_request_files(request):
 	return files
 
 
-def _validate_image_file(uploaded_file):
+def _validate_image_file(uploaded_file, allow_video=False):
 	if uploaded_file is None:
 		raise ValidationError("Image file is required.")
 
 	if hasattr(uploaded_file, 'size') and uploaded_file.size > MAX_UPLOAD_SIZE_BYTES:
-		raise ValidationError("Image file must be 10 MB or smaller.")
+		if allow_video:
+			raise ValidationError("Uploaded file must be 10 MB or smaller.")
+		else:
+			raise ValidationError("Image file must be 10 MB or smaller.")
 
 	content_type = getattr(uploaded_file, "content_type", "") or ""
+	_, extension = os.path.splitext((uploaded_file.name or "").lower())
+
+	# Detect video file
+	is_video = extension in {".mp4", ".mov"} or content_type in {"video/mp4", "video/quicktime"}
+
+	if is_video:
+		if not allow_video:
+			raise ValidationError("Only image files can be uploaded.")
+		if extension not in {".mp4", ".mov"}:
+			raise ValidationError("Unsupported video file type.")
+		if content_type not in {"video/mp4", "video/quicktime"}:
+			raise ValidationError("Unsupported video MIME type.")
+		return
+
+	# Image validation path
 	if not content_type.startswith("image/"):
 		raise ValidationError("Only image files can be uploaded.")
 
-	_, extension = os.path.splitext((uploaded_file.name or "").lower())
-	allowed_extensions = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff"}
+	allowed_extensions = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".heic", ".heif", ".heics", ".heifs"}
 	if extension not in allowed_extensions:
 		raise ValidationError("Unsupported image file type.")
 
@@ -92,6 +113,47 @@ def _validate_image_file(uploaded_file):
 			uploaded_file.seek(0)
 		except Exception:
 			pass
+
+
+def _convert_heic_to_jpeg(uploaded_file, quality=80, max_size_px=4096):
+	from PIL import Image
+	from django.core.files.uploadedfile import SimpleUploadedFile
+	from io import BytesIO
+
+	uploaded_file.seek(0)
+	with Image.open(uploaded_file) as img:
+		exif_data = img.info.get("exif")
+		if img.mode != "RGB":
+			img = img.convert("RGB")
+		
+		# Resize if it exceeds max_size_px
+		width, height = img.size
+		if max_size_px and (width > max_size_px or height > max_size_px):
+			if width > height:
+				new_width = max_size_px
+				new_height = int(height * (max_size_px / width))
+			else:
+				new_height = max_size_px
+				new_width = int(width * (max_size_px / height))
+			img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+		out_buf = BytesIO()
+		if exif_data:
+			img.save(out_buf, format="JPEG", exif=exif_data, quality=quality)
+		else:
+			img.save(out_buf, format="JPEG", quality=quality)
+		
+		name_root, _ = os.path.splitext(uploaded_file.name)
+		new_filename = f"{name_root}.jpg"
+		content_type = "image/jpeg"
+		
+		new_file = SimpleUploadedFile(
+			name=new_filename,
+			content=out_buf.getvalue(),
+			content_type=content_type
+		)
+		return new_file
+
 
 
 def _is_valid_http_url(value):
@@ -367,6 +429,14 @@ def site_submission_request(request):
 	except ValidationError as exc:
 		return _cors_headers(_json_error(str(exc), status=400), origin)
 
+	if image:
+		_, extension = os.path.splitext((image.name or "").lower())
+		if extension in {".heic", ".heif", ".heics", ".heifs"}:
+			try:
+				image = _convert_heic_to_jpeg(image)
+			except Exception as exc:
+				return _cors_headers(_json_error(f"Failed to process HEIC image: {str(exc)}", status=400), origin)
+
 	request_obj = SiteSubmissionRequest.objects.create(
 		name=name,
 		email=email,
@@ -396,7 +466,6 @@ def site_submission_request(request):
 	return _cors_headers(response, origin)
 
 
-@require_http_methods(["POST", "OPTIONS"])
 def _extract_and_validate_exif(uploaded_file):
 	from PIL import Image
 	from PIL.ExifTags import TAGS
@@ -508,7 +577,7 @@ def upload_contributions(request):
 
 	for uploaded_file in uploaded_files:
 		try:
-			_validate_image_file(uploaded_file)
+			_validate_image_file(uploaded_file, allow_video=True)
 		except ValidationError as exc:
 			return _cors_headers(_json_error(str(exc), status=400), origin)
 
@@ -532,10 +601,38 @@ def upload_contributions(request):
 			)
 
 			created_images = []
+			allow_full_resolution_raw = request.POST.get("allow_full_resolution")
+			allow_full_resolution = allow_full_resolution_raw == "true"
+
 			for uploaded_file in uploaded_files:
-				# Extract and validate EXIF metadata server-side
-				metadata = _extract_and_validate_exif(uploaded_file)
-				
+				_, extension = os.path.splitext((uploaded_file.name or "").lower())
+				content_type = getattr(uploaded_file, "content_type", "") or ""
+				is_video = extension in {".mp4", ".mov"} or content_type in {"video/mp4", "video/quicktime"}
+
+				if is_video:
+					metadata = {
+						"camera_make": None,
+						"camera_model": None,
+						"date_taken": None,
+						"focal_length": None,
+						"gps_latitude": None,
+						"gps_longitude": None,
+					}
+					processed_file = uploaded_file
+					file_type = "video"
+				else:
+					# Extract and validate EXIF metadata server-side
+					metadata = _extract_and_validate_exif(uploaded_file)
+					
+					# Convert to JPEG if HEIC/HEIF
+					processed_file = uploaded_file
+					if extension in {".heic", ".heif", ".heics", ".heifs"}:
+						if allow_full_resolution:
+							processed_file = _convert_heic_to_jpeg(uploaded_file, quality=95, max_size_px=None)
+						else:
+							processed_file = _convert_heic_to_jpeg(uploaded_file, quality=80, max_size_px=4096)
+					file_type = "image"
+
 				meta = metadata_map.get(uploaded_file.name, {})
 				is_compressed = meta.get("is_compressed", False)
 				original_filename = meta.get("original_filename", uploaded_file.name)
@@ -545,7 +642,8 @@ def upload_contributions(request):
 					ContributionImage.objects.create(
 						batch=batch,
 						site=site,
-						image=uploaded_file,
+						image=processed_file,
+						file_type=file_type,
 						camera_make=metadata["camera_make"],
 						camera_model=metadata["camera_model"],
 						date_taken=metadata["date_taken"],
@@ -584,6 +682,7 @@ def upload_contributions(request):
 					"site_id": image.site_id,
 					"image": image.image.name,
 					"uploaded_at": image.uploaded_at.isoformat(),
+					"file_type": image.file_type,
 					"metadata": {
 						"camera_make": image.camera_make,
 						"camera_model": image.camera_model,

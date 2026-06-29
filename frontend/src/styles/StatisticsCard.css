@@ -229,21 +229,20 @@
   font-size: 12px;
 }
 
-  .stat-value {
-    color: #42a5f5;
-  }
+.dark-mode .stat-value {
+  color: #42a5f5;
+}
 
-  .stat-item,
-  .top-contributors-section {
-    border-bottom-color: #333;
-    border-top-color: #333;
-  }
+.dark-mode .stat-item,
+.dark-mode .top-contributors-section {
+  border-bottom-color: #333;
+  border-top-color: #333;
+}
 
-  .contributor-name {
-    color: #fff;
-  }
+.dark-mode .contributor-name {
+  color: #fff;
+}
 
-  .contributor-uploads {
-    color: #666;
-  }
+.dark-mode .contributor-uploads {
+  color: #666;
 }

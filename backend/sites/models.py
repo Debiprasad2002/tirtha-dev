@@ -89,10 +89,15 @@ class ContributionImage(models.Model):
     batch = models.ForeignKey(ContributionBatch, on_delete=models.CASCADE, related_name="images")
     site = models.ForeignKey(Site, on_delete=models.CASCADE, related_name="contribution_images")
     image_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
-    image = models.ImageField(
+    image = models.FileField(
         upload_to=contribution_image_upload_to,
         max_length=500,
-        validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "webp", "gif", "bmp", "tif", "tiff"])],
+        validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "webp", "gif", "bmp", "tif", "tiff", "heic", "heif", "heics", "heifs", "mp4", "mov"])],
+    )
+    file_type = models.CharField(
+        max_length=10,
+        choices=[("image", "Image"), ("video", "Video")],
+        default="image",
     )
     uploaded_at = models.DateTimeField(auto_now_add=True)
     camera_make = models.CharField(max_length=255, blank=True, null=True)

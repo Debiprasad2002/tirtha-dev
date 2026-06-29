@@ -65,7 +65,7 @@ function FileUploadBox({ selectedFiles = [], onFilesChange, allowOpen = true, on
         <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,video/mp4,video/quicktime,.heic,.heif,.heics,.heifs,.mp4,.mov"
         multiple
         style={{ display: 'none' }}
         onChange={(e) => handleFileSelect(e.target.files)}
